@@ -54,14 +54,14 @@ Backend is selected at **runtime** via `activeBackend` state (toggled in Header)
 ### Single-agent backend (`activeBackend === 'single_agent'`)
 - Env var: `VITE_SINGLE_AGENT_API_URL`
 - Backend: AWS API Gateway HTTP API → Lambda
-- Chat request: `POST /primitive` `{ action: 'chat', prompt, session_id? }`
+- Chat request: `POST` to the full URL in `VITE_SINGLE_AGENT_API_URL` (path, e.g. `/primitive`, is baked into the env var, not appended in code) `{ action: 'chat', prompt, session_id? }`
 - Chat response: `{ response, session_id, timestamp }` (direct JSON)
 - No API key required
 
 ### Multi-agent backend (`activeBackend === 'multi_agent'`)
 - Env var: `VITE_MULTI_AGENT_API_URL`
 - Backend: AWS Lambda Function URL (multi-agent orchestrator)
-- Chat request: `POST /` `{ action: 'chat', prompt, session_id? }`
+- Chat request: `POST` to the full URL in `VITE_MULTI_AGENT_API_URL` (path is baked into the env var, not appended in code) `{ action: 'chat', prompt, session_id? }`
 - Chat response: `{ statusCode, body: "<json string>" }` — must `JSON.parse(data.body)` to get `{ response, session_id, timestamp }`
 - No API key required
 
@@ -72,7 +72,7 @@ Backend is selected at **runtime** via `activeBackend` state (toggled in Header)
 4. Replace placeholder with real response (`skipTypewriter: true` — instant display)
 5. Store `timestamp`, `question`, `session_id`, and `apiUrl` on the AI message
 
-**Session management:** `session_id` stored in `localStorage` as `session_id`. Cleared on language switch. Both backends share the same DynamoDB so switching backends mid-conversation is seamless.
+**Session management:** `session_id` stored in `localStorage` as `session_id`. Cleared on language switch and on "Clear chat". Both backends share the same DynamoDB so switching backends mid-conversation is seamless.
 
 **Constraints:** Max 30 messages.
 
@@ -136,6 +136,10 @@ npm run build    # production build
 npm run preview  # preview production build
 npm run lint     # ESLint
 ```
+
+## Claude Code Hooks (`.claude/settings.json`)
+- Any Edit/Write to `.jsx`/`.js` auto-runs `eslint --fix` afterward — no need to manually re-lint a file you just edited.
+- Edits to `.env`/`.env.*` are blocked outright by a PreToolUse hook (holds live backend URLs) — ask the user to change env vars themselves.
 
 ## Notable Conventions
 - All components are functional with hooks
