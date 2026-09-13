@@ -1,10 +1,7 @@
 import { FaArrowUp, FaTrashCan } from "react-icons/fa6";
 import { useState} from 'react';
 
-const SINGLE_AGENT_API_URL = import.meta.env.VITE_SINGLE_AGENT_API_URL
-const MULTI_AGENT_API_URL = import.meta.env.VITE_MULTI_AGENT_API_URL
-
-const ChatInput = ({chatHistory, setChatHistory, language, activeBackend}) => {
+const ChatInput = ({chatHistory, setChatHistory, language, activeBackend, singleAgentApiUrl, multiAgentApiUrl}) => {
     const [inputValue, setInputValue] = useState('');
     const [loading, setLoading] = useState(false);
     const [sessionId, setSessionId] = useState(() => {
@@ -58,7 +55,7 @@ const ChatInput = ({chatHistory, setChatHistory, language, activeBackend}) => {
             const requestBody = { action: 'chat', prompt: currentQuestion }
             if (sessionId) requestBody.session_id = sessionId
 
-            const apiUrl = activeBackend === 'multi_agent' ? MULTI_AGENT_API_URL : SINGLE_AGENT_API_URL
+            const apiUrl = activeBackend === 'multi_agent' ? multiAgentApiUrl : singleAgentApiUrl
             const response = await fetch(apiUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
