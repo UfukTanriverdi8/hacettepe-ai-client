@@ -1,49 +1,24 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { FaUser } from "react-icons/fa6"
 import { GiDeerHead } from "react-icons/gi"
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import FeedbackModal from './FeedbackModal'
+import { useCyclingText } from '../hooks/useCyclingText'
 
 const LOADING_MESSAGES = ['🤔 Düşünüyor...','🦌 Hacettepe kaynakları taranıyor...' ,'🧑‍🍳 Cevap üretiliyor...']
 
 const ChatMessage = ({ sender, message, isPlaceholder, skipTypewriter, timestamp, question, session_id, apiUrl, language }) => {
+    const cyclingMsg = useCyclingText(LOADING_MESSAGES)
     const [displayedMsg, setDisplayedMsg] = useState("")
     const [isTypingComplete, setIsTypingComplete] = useState(false)
     const [showFeedbackModal, setShowFeedbackModal] = useState(false)
     const [feedbackSubmitted, setFeedbackSubmitted] = useState(false)
-    const timeoutRef = useRef(null)
 
     useEffect(() => {
-        if (timeoutRef.current) clearTimeout(timeoutRef.current)
-
         if (sender === 'AI' && isPlaceholder) {
-            // Cycling loading animation with slow dots
-            let msgIndex = 0
-            let charIndex = 0
-            setDisplayedMsg('')
-            setIsTypingComplete(false)
-
-            const typeNext = () => {
-                const currentMsg = LOADING_MESSAGES[msgIndex]
-                if (charIndex < currentMsg.length) {
-                    const char = currentMsg[charIndex]
-                    setDisplayedMsg(currentMsg.slice(0, charIndex + 1))
-                    charIndex++
-                    timeoutRef.current = setTimeout(typeNext, char === '.' ? 220 : 45)
-                } else {
-                    // Pause, then start next message
-                    timeoutRef.current = setTimeout(() => {
-                        msgIndex = (msgIndex + 1) % LOADING_MESSAGES.length
-                        charIndex = 0
-                        setDisplayedMsg('')
-                        typeNext()
-                    }, 700)
-                }
-            }
-            typeNext()
-
-            return () => { if (timeoutRef.current) clearTimeout(timeoutRef.current) }
+            // Cycling loading animation now lives in useCyclingText
+            return
 
         } else if (sender === 'AI' && !skipTypewriter) {
             // Greeting message — one-time typewriter
@@ -76,7 +51,7 @@ const ChatMessage = ({ sender, message, isPlaceholder, skipTypewriter, timestamp
             <div className="flex flex-col flex-1">
                 {sender === 'AI' ? (
                     isPlaceholder ? (
-                        <p className="text-[#9ca3af]">{displayedMsg}</p>
+                        <p className="text-[#9ca3af]">{cyclingMsg}</p>
                     ) : (
                         <div className="prose prose-invert max-w-none">
                             <ReactMarkdown remarkPlugins={[remarkGfm]}>

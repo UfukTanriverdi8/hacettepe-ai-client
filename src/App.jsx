@@ -3,6 +3,9 @@ import ChatConversations from './components/ChatConversations'
 import ChatInput from './components/ChatInput'
 import Footer from './components/Footer'
 import InfoModal from './components/InfoModal'
+import LoadingScreen from './components/LoadingScreen'
+import ConfigErrorScreen from './components/ConfigErrorScreen'
+import { loadConfig } from './config'
 import { useState, useEffect } from 'react'
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.min.css';
@@ -58,8 +61,28 @@ const App =  () => {
 
       }
 
-    const [activeBackend, setActiveBackend] = useState(import.meta.env.VITE_ACTIVE_BACKEND || 'single_agent')
+    const [config, setConfig] = useState(null)
+    const [configError, setConfigError] = useState(null)
+    const [activeBackend, setActiveBackend] = useState(null)
+    const [configRetryToken, setConfigRetryToken] = useState(0)
     const handleBackendToggle = () => setActiveBackend(prev => prev === 'single_agent' ? 'multi_agent' : 'single_agent')
+
+    useEffect(() => {
+        let cancelled = false
+        setConfigError(null)
+        loadConfig()
+            .then(c => { if (!cancelled) setConfig(c) })
+            .catch(e => { if (!cancelled) setConfigError(e) })
+        return () => { cancelled = true }
+    }, [configRetryToken])
+
+    useEffect(() => {
+        if (config && activeBackend === null) {
+            setActiveBackend(config.activeBackend || 'single_agent')
+        }
+    }, [config, activeBackend])
+
+    const retryConfig = () => setConfigRetryToken(prev => prev + 1)
 
       const changeLanguage = () => {
         setChatHistory([]) // Clear the chat history
@@ -81,13 +104,21 @@ const App =  () => {
             })
         }
       
+    if (configError) {
+        return <ConfigErrorScreen onRetry={retryConfig} />
+    }
+
+    if (!config || activeBackend === null) {
+        return <LoadingScreen />
+    }
+
     return (
     <div className="flex flex-col h-screen bg-primary bg-opacity-85 text-tertiary">
         <Header className="fixed top-0 left-0 right-0" language={language} handleLanguageChange={handleLanguageChange} activeBackend={activeBackend} handleBackendToggle={handleBackendToggle}/>
         <div className="flex-grow overflow-auto scrollable max-h-full">
         <ChatConversations chatHistory={chatHistory} language={language} />
         </div>
-        <ChatInput className="fixed" language={language} chatHistory={chatHistory} setChatHistory={setChatHistory} activeBackend={activeBackend} />
+        <ChatInput className="fixed" language={language} chatHistory={chatHistory} setChatHistory={setChatHistory} activeBackend={activeBackend} singleAgentApiUrl={config.singleAgentApiUrl} multiAgentApiUrl={config.multiAgentApiUrl} />
         {openModal && <InfoModal language={language} onClose={toggleModal} />}
         <Footer className="fixed bottom-0 left-0 right-0" onInfoClick={toggleModal} />
         <ToastContainer />
