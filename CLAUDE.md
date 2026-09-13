@@ -12,6 +12,8 @@ Built with Vite + React 18 + Tailwind CSS. Deployed on Digital Ocean.
 ### Component Tree
 ```
 App.jsx                         # Root: global state, layout
+├── LoadingScreen.jsx            # Shown while /config.json is loading
+├── ConfigErrorScreen.jsx        # Shown if /config.json fails to load (manual retry)
 ├── Header.jsx                  # Branding, backend toggle, language toggle
 ├── ChatConversations.jsx       # Scrollable message list container
 │   └── ChatMessage.jsx         # Individual message bubble + typewriter effect
@@ -29,7 +31,8 @@ No external state library — all prop-drilled from `App.jsx` with `localStorage
 **App.jsx global state:**
 - `chatHistory` — array of message objects (persisted to localStorage)
 - `language` — `'EN' | 'TR'` (persisted)
-- `activeBackend` — `'single_agent' | 'multi_agent'` (runtime toggle, NOT persisted — resets to env var default on reload)
+- `config` — fetched once from `/config.json` via `loadConfig()` (`src/config.js`); gates rendering behind `LoadingScreen`/`ConfigErrorScreen` until resolved
+- `activeBackend` — `'single_agent' | 'multi_agent'` (runtime toggle, NOT persisted — resets to `config.activeBackend` on reload)
 - `openModal` — boolean
 
 **Message object shape:**
@@ -49,17 +52,17 @@ No external state library — all prop-drilled from `App.jsx` with `localStorage
 
 ## API Integration (ChatInput.jsx)
 
-Backend is selected at **runtime** via `activeBackend` state (toggled in Header). Both backends share the same DynamoDB table and session.
+Backend is selected at **runtime** via `activeBackend` state (toggled in Header). Both backends share the same DynamoDB table and session. Both URLs come from `/config.json` (fetched by `App.jsx`), not env vars — passed down as `singleAgentApiUrl`/`multiAgentApiUrl` props to `ChatInput.jsx`.
 
 ### Single-agent backend (`activeBackend === 'single_agent'`)
-- Env var: `VITE_SINGLE_AGENT_API_URL`
+- URL source: `config.singleAgentApiUrl` (from `/config.json`)
 - Backend: AWS API Gateway HTTP API → Lambda
 - Chat request: `POST` to the full URL in `VITE_SINGLE_AGENT_API_URL` (path, e.g. `/primitive`, is baked into the env var, not appended in code) `{ action: 'chat', prompt, session_id? }`
 - Chat response: `{ response, session_id, timestamp }` (direct JSON)
 - No API key required
 
 ### Multi-agent backend (`activeBackend === 'multi_agent'`)
-- Env var: `VITE_MULTI_AGENT_API_URL`
+- URL source: `config.multiAgentApiUrl` (from `/config.json`)
 - Backend: AWS Lambda Function URL (multi-agent orchestrator)
 - Chat request: `POST` to the full URL in `VITE_MULTI_AGENT_API_URL` (path is baked into the env var, not appended in code) `{ action: 'chat', prompt, session_id? }`
 - Chat response: `{ statusCode, body: "<json string>" }` — must `JSON.parse(data.body)` to get `{ response, session_id, timestamp }`
@@ -121,13 +124,15 @@ Backend is selected at **runtime** via `activeBackend` state (toggled in Header)
 | `react-toastify` | Toast notifications |
 | Vite | Build tool + dev server |
 
-## Environment Variables
+## Runtime Config (`/config.json`)
+Backend URLs and the initial `activeBackend` come from `public/config.json` (dev/DO build) or
+a CDK-deployed `config.json` (CloudFront), fetched via `src/config.js`'s `loadConfig()` —
+**not** Vite env vars (removed; `.env`'s `VITE_*` keys are no longer read anywhere).
 ```
-VITE_SINGLE_AGENT_API_URL     # AWS API Gateway HTTP API URL
-VITE_MULTI_AGENT_API_URL      # AWS Lambda Function URL
-VITE_ACTIVE_BACKEND           # 'single_agent' | 'multi_agent' — sets initial toggle state at load
+{ "singleAgentApiUrl": "...", "multiAgentApiUrl": "...", "activeBackend": "single_agent" }
 ```
-No API keys — both backends are public endpoints protected only by AWS rate limiting.
+`config.example.json` at repo root is a placeholder reference. No API keys — both backends
+are public endpoints protected only by AWS rate limiting.
 
 ## Dev Commands
 ```bash
@@ -145,6 +150,7 @@ npm run lint     # ESLint
 - All components are functional with hooks
 - Typewriter animation:
   - **Placeholder**: cycles through `LOADING_MESSAGES` (Turkish strings) at 45ms/char, 220ms for dots, 700ms pause between messages
+    — logic lives in `src/hooks/useCyclingText.js` (reusable; also used by `LoadingScreen.jsx`)
   - **Real AI responses**: instant display (`skipTypewriter: true` set by `ChatInput`)
   - **Greeting / initial messages** (no `skipTypewriter`): 25ms/char one-shot typewriter
   - **History on load**: instant display (`skipTypewriter: true` set by `App.jsx`)
