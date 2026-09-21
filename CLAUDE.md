@@ -5,7 +5,9 @@ Never add a "Co-Authored-By: Claude..." line or any other self-attribution to co
 
 ## Project Overview
 Single-page React chatbot application for Hacettepe University AI assistant.
-Built with Vite + React 18 + Tailwind CSS. Deployed on Digital Ocean.
+Built with Vite + React 18 + Tailwind CSS. Deployed to S3 + CloudFront by
+`HacettepeAiFrontendStack` in `../hacettepe-ai-backend`, which uploads this repo's `dist/` and
+fronts the backend Lambda on the same distribution.
 
 ## Architecture
 
@@ -14,7 +16,7 @@ Built with Vite + React 18 + Tailwind CSS. Deployed on Digital Ocean.
 App.jsx                         # Root: global state, layout
 ├── LoadingScreen.jsx            # Shown while /config.json is loading
 ├── ConfigErrorScreen.jsx        # Shown if /config.json fails to load (manual retry)
-├── Header.jsx                  # Branding, backend toggle, language toggle
+├── Header.jsx                  # Branding, language toggle
 ├── ChatConversations.jsx       # Scrollable message list container
 │   └── ChatMessage.jsx         # Individual message bubble + typewriter effect
 │       └── FeedbackModal.jsx   # 5-star feedback modal (shown per AI message)
@@ -32,7 +34,6 @@ No external state library — all prop-drilled from `App.jsx` with `localStorage
 - `chatHistory` — array of message objects (persisted to localStorage)
 - `language` — `'EN' | 'TR'` (persisted)
 - `config` — fetched once from `/config.json` via `loadConfig()` (`src/config.js`); gates rendering behind `LoadingScreen`/`ConfigErrorScreen` until resolved
-- `activeBackend` — `'single_agent' | 'multi_agent'` (runtime toggle, NOT persisted — resets to `config.activeBackend` on reload)
 - `openModal` — boolean
 
 **Message object shape:**
@@ -40,44 +41,61 @@ No external state library — all prop-drilled from `App.jsx` with `localStorage
 {
   sender: 'Human' | 'AI',
   message: string,
-  isPlaceholder?: boolean,   // true while API is loading
-  skipTypewriter?: boolean,  // skip animation for history messages and real API responses
-  id?: number,               // used to replace placeholder with real response
-  timestamp?: string,        // ISO string — present on all AI responses, used to gate feedback button
-  question?: string,         // the user's original question — stored for feedback POST body
-  session_id?: string,       // from API response — stored for feedback DynamoDB key
-  apiUrl?: string,           // URL used for this response — feedback POSTs back to the same endpoint
+  isPlaceholder?: boolean,   // true until the first `token` event arrives
+  skipTypewriter?: boolean,  // skip animation for history messages and streamed responses
+  id?: number,               // used to patch the placeholder as stream events arrive
+  status?: string,           // localized status text, shown while isPlaceholder is true
+  timestamp?: string,        // DynamoDB sort key from the `done` event — gates the feedback button
+  question?: string,         // the user's original question
+  session_id?: string,       // from the `session` event — the feedback DynamoDB partition key
 }
 ```
 
 ## API Integration (ChatInput.jsx)
 
-Backend is selected at **runtime** via `activeBackend` state (toggled in Header). Both backends share the same DynamoDB table and session. Both URLs come from `/config.json` (fetched by `App.jsx`), not env vars — passed down as `singleAgentApiUrl`/`multiAgentApiUrl` props to `ChatInput.jsx`.
+One backend: the FastAPI service in `../hacettepe-ai-backend`, fronted by the same CloudFront
+distribution that serves this SPA. `/chat` and `/feedback` are therefore **same-origin paths**,
+not absolute URLs — no CORS preflight anywhere. Paths come from `/config.json` as `chatUrl` and
+`feedbackUrl`, passed to `ChatInput.jsx` and (via `ChatConversations` → `ChatMessage`) to
+`FeedbackModal.jsx`.
 
-### Single-agent backend (`activeBackend === 'single_agent'`)
-- URL source: `config.singleAgentApiUrl` (from `/config.json`)
-- Backend: AWS API Gateway HTTP API → Lambda
-- Chat request: `POST` to the full URL in `VITE_SINGLE_AGENT_API_URL` (path, e.g. `/primitive`, is baked into the env var, not appended in code) `{ action: 'chat', prompt, session_id? }`
-- Chat response: `{ response, session_id, timestamp }` (direct JSON)
-- No API key required
+### Chat — `POST {chatUrl}`
 
-### Multi-agent backend (`activeBackend === 'multi_agent'`)
-- URL source: `config.multiAgentApiUrl` (from `/config.json`)
-- Backend: AWS Lambda Function URL (multi-agent orchestrator)
-- Chat request: `POST` to the full URL in `VITE_MULTI_AGENT_API_URL` (path is baked into the env var, not appended in code) `{ action: 'chat', prompt, session_id? }`
-- Chat response: `{ statusCode, body: "<json string>" }` — must `JSON.parse(data.body)` to get `{ response, session_id, timestamp }`
-- No API key required
+Request: `{ message, session_id? }`. `session_id` is omitted on the first question of a
+conversation; the server mints one and returns it in the stream's first event.
 
-**API call flow:**
+Response: **NDJSON**, one JSON object per line, `Content-Type: application/x-ndjson`. Read with
+`response.body.getReader()`, not `response.json()`.
+
+| `type` | Payload | Client action |
+|---|---|---|
+| `session` | `session_id` | store in state + `localStorage`; sent first, before any model work |
+| `status` | `message` (English) | localize via `STATUS_TEXT`, show in place of the cycling placeholder |
+| `token` | `text` | **append** to the accumulated answer, clear `isPlaceholder` |
+| `done` | `timestamp?` | store as the feedback key; absent when the server's write failed |
+| `error` | `message` | show it in place of the placeholder; do not throw |
+
+Two framing details in the reader are load-bearing. `buffer = lines.pop()` holds back the
+trailing fragment, because chunk boundaries land wherever TCP puts them rather than on newlines.
+`decoder.decode(value, { stream: true })` does the same for an incomplete UTF-8 sequence, which
+Turkish text hits routinely.
+
+`token` appends rather than assigns. The backend currently emits the whole answer as one event
+(`app/agent/loop.py`), so the two look identical today — appending makes the eventual
+`converse_stream` switch a backend-only change.
+
+**Call flow:**
 1. Add human message to history
-2. Add placeholder message with unique ID (cycling animated loading messages)
-3. Fetch from active backend URL
-4. Replace placeholder with real response (`skipTypewriter: true` — instant display)
-5. Store `timestamp`, `question`, `session_id`, and `apiUrl` on the AI message
+2. Add placeholder message with a unique ID (cycling animated loading messages)
+3. `fetch` the stream, then patch that one placeholder repeatedly as events arrive
+4. On `error`, or on any thrown failure, replace the placeholder with a visible message —
+   never leave it cycling
 
-**Session management:** `session_id` stored in `localStorage` as `session_id`. Cleared on language switch and on "Clear chat". Both backends share the same DynamoDB so switching backends mid-conversation is seamless.
+**Session management:** `session_id` lives in `localStorage` under `session_id`. Cleared on
+language switch and on "Clear chat". History is replayed server-side from DynamoDB, so the
+client sends only the new question — follow-up questions work without sending prior turns.
 
-**Constraints:** Max 30 messages.
+**Constraints:** Max 30 messages (15 exchanges), below the server's 25-exchange replay window.
 
 ## Feedback System (FeedbackModal.jsx)
 
@@ -89,19 +107,13 @@ Backend is selected at **runtime** via `activeBackend` state (toggled in Header)
   - 5-star rating with half-star support (0.5 increments via left/right half-hover)
   - Optional comment textarea
   - Bilingual TR/EN labels
-- POSTs to the `apiUrl` stored on the message (same endpoint that generated the response)
-- Request body: `{ action: 'feedback', session_id, timestamp, feedback_value: 'Positive'|'Negative', rating: 0-10, feedback_reason? }`
+- `POST {feedbackUrl}` — the fixed path from `/config.json`, not a per-message URL
+- Request body: `{ session_id, timestamp, feedback_value: 'Positive'|'Negative', rating: 0-10, feedback_reason? }`
   - `feedback_value`: `'Positive'` if stars ≥ 3, else `'Negative'`
   - `rating`: stars × 2 (0–5 star scale → 0–10 integer)
-
-## Backend Toggle (Header.jsx)
-
-- Top-left of header: a fixed 48×48px box with red border
-- Single agent: one 🤖 centered in the box
-- Multi agent: three 🤖 arranged in a triangle (top-center, bottom-left, bottom-right)
-- Animation: GPU-only — only `transform` and `opacity` animate (no layout reflow). Robots are always at `top: 50%; left: 50%`; movement encoded as `translate()` offsets; size change via `scale(0.65)`.
-- `willChange: 'transform, opacity'` set on each robot span
-- Label below the box shows current mode, changes on toggle
+- A non-2xx response raises an error toast. The endpoint answers **404** when
+  `(session_id, timestamp)` matches no stored exchange — aged out under the 180-day TTL, or
+  never written. Thanking the user for a rating that went nowhere is the failure to avoid here.
 
 ## Styling
 - Tailwind CSS v3 with custom colors in `tailwind.config.js`:
@@ -125,22 +137,41 @@ Backend is selected at **runtime** via `activeBackend` state (toggled in Header)
 | Vite | Build tool + dev server |
 
 ## Runtime Config (`/config.json`)
-Backend URLs and the initial `activeBackend` come from `public/config.json` (dev/DO build) or
-a CDK-deployed `config.json` (CloudFront), fetched via `src/config.js`'s `loadConfig()` —
-**not** Vite env vars (removed; `.env`'s `VITE_*` keys are no longer read anywhere).
+API paths come from `public/config.json` (dev) or a CDK-deployed `config.json` (CloudFront),
+fetched via `src/config.js`'s `loadConfig()` — **not** Vite env vars (removed; `.env`'s
+`VITE_*` keys are no longer read anywhere).
 ```
-{ "singleAgentApiUrl": "...", "multiAgentApiUrl": "...", "activeBackend": "single_agent" }
+{ "chatUrl": "/chat", "feedbackUrl": "/feedback" }
 ```
-`config.example.json` at repo root is a placeholder reference. No API keys — both backends
-are public endpoints protected only by AWS rate limiting.
+Three copies of this file exist, and **one lives in the other repo**:
+
+| File | Repo |
+|---|---|
+| `public/config.json` | client (dev) |
+| `config.example.json` | client (reference) |
+| `infra/frontend/config/config.json` | **backend** — this is the one deployed users receive |
+
+The backend copy is uploaded by `HacettepeAiFrontendStack` from a directory outside the Vite
+build, so changing it needs a re-upload but no frontend rebuild. Miss it and the deployed SPA
+posts to `undefined`.
+
+No API keys. The endpoints are public, protected by WAF rate limiting and an origin-verify
+header that CloudFront adds.
 
 ## Dev Commands
 ```bash
-npm run dev      # start dev server
+npm run dev      # start dev server (proxies /chat, /healthz, /feedback to localhost:8000)
 npm run build    # production build
 npm run preview  # preview production build
 npm run lint     # ESLint
 ```
+
+Full-stack dev needs the backend running alongside:
+```bash
+cd ../hacettepe-ai-backend && uv run uvicorn app.main:app --reload
+```
+`ORIGIN_VERIFY_SECRET` unset locally makes the origin check a no-op, so no header is needed.
+Vite's proxy does not buffer, so streaming is visible in dev.
 
 ## Claude Code Hooks (`.claude/settings.json`)
 - Any Edit/Write to `.jsx`/`.js` auto-runs `eslint --fix` afterward — no need to manually re-lint a file you just edited.
@@ -150,7 +181,9 @@ npm run lint     # ESLint
 - All components are functional with hooks
 - Typewriter animation:
   - **Placeholder**: cycles through `LOADING_MESSAGES` (Turkish strings) at 45ms/char, 220ms for dots, 700ms pause between messages
-    — logic lives in `src/hooks/useCyclingText.js` (reusable; also used by `LoadingScreen.jsx`)
+    — logic lives in `src/hooks/useCyclingText.js` (reusable; also used by `LoadingScreen.jsx`).
+    Covers roughly the first 3.5s, until the first `status` event replaces it with what the
+    server is actually doing
   - **Real AI responses**: instant display (`skipTypewriter: true` set by `ChatInput`)
   - **Greeting / initial messages** (no `skipTypewriter`): 25ms/char one-shot typewriter
   - **History on load**: instant display (`skipTypewriter: true` set by `App.jsx`)

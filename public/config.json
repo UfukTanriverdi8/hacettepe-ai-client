@@ -1,5 +1,4 @@
 {
-  "singleAgentApiUrl": "https://q82k342s8l.execute-api.us-east-1.amazonaws.com/primitive",
-  "multiAgentApiUrl": "https://qckicd34rob6c3allg2gyvf2zu0kovic.lambda-url.us-east-1.on.aws/",
-  "activeBackend": "multi_agent"
+  "chatUrl": "/chat",
+  "feedbackUrl": "/feedback"
 }

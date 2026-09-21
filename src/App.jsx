@@ -63,9 +63,7 @@ const App =  () => {
 
     const [config, setConfig] = useState(null)
     const [configError, setConfigError] = useState(null)
-    const [activeBackend, setActiveBackend] = useState(null)
     const [configRetryToken, setConfigRetryToken] = useState(0)
-    const handleBackendToggle = () => setActiveBackend(prev => prev === 'single_agent' ? 'multi_agent' : 'single_agent')
 
     useEffect(() => {
         let cancelled = false
@@ -75,12 +73,6 @@ const App =  () => {
             .catch(e => { if (!cancelled) setConfigError(e) })
         return () => { cancelled = true }
     }, [configRetryToken])
-
-    useEffect(() => {
-        if (config && activeBackend === null) {
-            setActiveBackend(config.activeBackend || 'single_agent')
-        }
-    }, [config, activeBackend])
 
     const retryConfig = () => setConfigRetryToken(prev => prev + 1)
 
@@ -108,17 +100,17 @@ const App =  () => {
         return <ConfigErrorScreen onRetry={retryConfig} />
     }
 
-    if (!config || activeBackend === null) {
+    if (!config) {
         return <LoadingScreen />
     }
 
     return (
     <div className="flex flex-col h-screen bg-primary bg-opacity-85 text-tertiary">
-        <Header className="fixed top-0 left-0 right-0" language={language} handleLanguageChange={handleLanguageChange} activeBackend={activeBackend} handleBackendToggle={handleBackendToggle}/>
+        <Header className="fixed top-0 left-0 right-0" language={language} handleLanguageChange={handleLanguageChange}/>
         <div className="flex-grow overflow-auto scrollable max-h-full">
-        <ChatConversations chatHistory={chatHistory} language={language} />
+        <ChatConversations chatHistory={chatHistory} language={language} feedbackUrl={config.feedbackUrl} />
         </div>
-        <ChatInput className="fixed" language={language} chatHistory={chatHistory} setChatHistory={setChatHistory} activeBackend={activeBackend} singleAgentApiUrl={config.singleAgentApiUrl} multiAgentApiUrl={config.multiAgentApiUrl} />
+        <ChatInput className="fixed" language={language} chatHistory={chatHistory} setChatHistory={setChatHistory} chatUrl={config.chatUrl} />
         {openModal && <InfoModal language={language} onClose={toggleModal} />}
         <Footer className="fixed bottom-0 left-0 right-0" onInfoClick={toggleModal} />
         <ToastContainer />

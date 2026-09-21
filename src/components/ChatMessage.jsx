@@ -8,7 +8,7 @@ import { useCyclingText } from '../hooks/useCyclingText'
 
 const LOADING_MESSAGES = ['🤔 Düşünüyor...','🦌 Hacettepe kaynakları taranıyor...' ,'🧑‍🍳 Cevap üretiliyor...']
 
-const ChatMessage = ({ sender, message, isPlaceholder, skipTypewriter, timestamp, question, session_id, apiUrl, language }) => {
+const ChatMessage = ({ sender, message, isPlaceholder, skipTypewriter, status, timestamp, question, session_id, feedbackUrl, language }) => {
     const cyclingMsg = useCyclingText(LOADING_MESSAGES)
     const [displayedMsg, setDisplayedMsg] = useState("")
     const [isTypingComplete, setIsTypingComplete] = useState(false)
@@ -51,7 +51,9 @@ const ChatMessage = ({ sender, message, isPlaceholder, skipTypewriter, timestamp
             <div className="flex flex-col flex-1">
                 {sender === 'AI' ? (
                     isPlaceholder ? (
-                        <p className="text-[#9ca3af]">{cyclingMsg}</p>
+                        // The cycling animation covers the seconds before the backend reports
+                        // what it is actually doing; a real status event takes over from there.
+                        <p className="text-[#9ca3af]">{status || cyclingMsg}</p>
                     ) : (
                         <div className="prose prose-invert max-w-none">
                             <ReactMarkdown remarkPlugins={[remarkGfm]}>
@@ -81,7 +83,7 @@ const ChatMessage = ({ sender, message, isPlaceholder, skipTypewriter, timestamp
                         answer={message}
                         timestamp={timestamp}
                         session_id={session_id}
-                        apiUrl={apiUrl}
+                        feedbackUrl={feedbackUrl}
                         language={language}
                     />
                 )}
