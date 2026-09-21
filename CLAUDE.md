@@ -199,6 +199,11 @@ so `ORIGIN_VERIFY_SECRET` and `BUDGET_ALERT_EMAIL` are required even for a front
 `cdk deploy` bundles the **working tree**, not a git ref — what is deployed and what is
 committed can diverge silently.
 
+**Identifying a live build.** `package.json`'s version is substituted into the bundle at build
+time via Vite `define` as `__APP_VERSION__`, and rendered in `InfoModal.jsx`. Bump it *before*
+building, or two different builds report the same version. The hashed asset filename in
+`index.html` is the fallback identifier and is always exact.
+
 ## Claude Code Hooks (`.claude/settings.json`)
 - Any Edit/Write to `.jsx`/`.js` auto-runs `eslint --fix` afterward — no need to manually re-lint a file you just edited.
 - Edits to `.env`/`.env.*` are blocked by a PreToolUse hook — ask the user to change it. The file is vestigial: nothing in `src/` reads `VITE_*`, and the hook's own message ("holds live backend URLs") is out of date.

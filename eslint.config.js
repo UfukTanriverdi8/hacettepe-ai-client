@@ -10,7 +10,9 @@ export default [
     files: ['**/*.{js,jsx}'],
     languageOptions: {
       ecmaVersion: 2020,
-      globals: globals.browser,
+      // __APP_VERSION__ is substituted by Vite's `define` at build time, so it exists in the
+      // bundle but not in any runtime environment ESLint knows about.
+      globals: { ...globals.browser, __APP_VERSION__: 'readonly' },
       parserOptions: {
         ecmaVersion: 'latest',
         ecmaFeatures: { jsx: true },
