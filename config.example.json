@@ -1,5 +1,4 @@
 {
-  "singleAgentApiUrl": "https://example.execute-api.us-east-1.amazonaws.com/stage",
-  "multiAgentApiUrl": "https://example.lambda-url.us-east-1.on.aws/",
-  "activeBackend": "multi_agent"
+  "chatUrl": "/chat",
+  "feedbackUrl": "/feedback"
 }

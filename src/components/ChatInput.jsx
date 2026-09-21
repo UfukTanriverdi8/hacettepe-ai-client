@@ -1,7 +1,23 @@
 import { FaArrowUp, FaTrashCan } from "react-icons/fa6";
 import { useState} from 'react';
 
-const ChatInput = ({chatHistory, setChatHistory, language, activeBackend, singleAgentApiUrl, multiAgentApiUrl}) => {
+// The backend's status strings are English and defined in app/agent/tool_specs.py
+// (STATUS_MESSAGES). An unmapped status falls through to the raw string, so a tool added
+// server-side shows something rather than nothing until this map catches up.
+const STATUS_TEXT = {
+    'searching the knowledge base...': {
+        TR: '🦌 Hacettepe kaynakları taranıyor...',
+        EN: '🦌 Searching the knowledge base...',
+    },
+    'fetching a live page...': {
+        TR: '🌐 Güncel sayfa getiriliyor...',
+        EN: '🌐 Fetching a live page...',
+    },
+}
+
+const localizeStatus = (message, language) => STATUS_TEXT[message]?.[language] ?? message
+
+const ChatInput = ({chatHistory, setChatHistory, language, chatUrl}) => {
     const [inputValue, setInputValue] = useState('');
     const [loading, setLoading] = useState(false);
     const [sessionId, setSessionId] = useState(() => {
@@ -47,52 +63,97 @@ const ChatInput = ({chatHistory, setChatHistory, language, activeBackend, single
             }
         ])
 
+        // Every stream event is a partial update to that one placeholder, so this runs
+        // several times per question rather than once at the end.
+        const patchAiMessage = (patch) => setChatHistory(prevHistory => prevHistory.map(message =>
+            message.id === aiMessageId ? { ...message, ...patch } : message
+        ))
+
+        let activeSessionId = sessionId
+        let answer = ''
+        let errorShown = false
+
+        const handleEvent = (event) => {
+            switch (event.type) {
+                case 'session':
+                    // Sent before any Bedrock work, so the id survives a stream that dies
+                    // halfway and the next question continues the same conversation.
+                    activeSessionId = event.session_id
+                    setSessionId(event.session_id)
+                    localStorage.setItem('session_id', event.session_id)
+                    break
+                case 'status':
+                    patchAiMessage({ status: localizeStatus(event.message, language) })
+                    break
+                case 'token':
+                    // Appended, not assigned: the backend sends the whole answer as one event
+                    // today, but issue #8 splits it into pieces and this already handles that.
+                    answer += event.text
+                    patchAiMessage({ message: answer, isPlaceholder: false, skipTypewriter: true, status: null })
+                    break
+                case 'done':
+                    // timestamp is the DynamoDB sort key this answer is stored under, and is
+                    // absent when the write failed — ChatMessage gates the feedback button on it.
+                    patchAiMessage({ timestamp: event.timestamp, question: currentQuestion, session_id: activeSessionId })
+                    break
+                case 'error':
+                    errorShown = true
+                    patchAiMessage({ message: event.message, isPlaceholder: false, skipTypewriter: true, status: null })
+                    break
+            }
+        }
+
         try {
-            let responseText
-            let timestamp
-            let newSessionId
-
-            const requestBody = { action: 'chat', prompt: currentQuestion }
-            if (sessionId) requestBody.session_id = sessionId
-
-            const apiUrl = activeBackend === 'multi_agent' ? multiAgentApiUrl : singleAgentApiUrl
-            const response = await fetch(apiUrl, {
+            const response = await fetch(chatUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(requestBody)
+                body: JSON.stringify({
+                    message: currentQuestion,
+                    ...(activeSessionId && { session_id: activeSessionId })
+                })
             })
 
-            if (!response.ok) {
-                alert("We're sorry, but something went wrong. Please try again later.")
-                throw new Error('Network response was not ok')
+            if (!response.ok || !response.body) {
+                throw new Error(`HTTP ${response.status}`)
             }
 
-            const data = await response.json()
+            const reader = response.body.getReader()
+            const decoder = new TextDecoder()
+            let buffer = ''
 
-            if (activeBackend === 'multi_agent') {
-                const parsed = JSON.parse(data.body)
-                responseText = parsed.response
-                timestamp = parsed.timestamp
-                newSessionId = parsed.session_id
-            } else {
-                responseText = data.response
-                timestamp = data.timestamp
-                newSessionId = data.session_id
+            for (;;) {
+                const { done, value } = await reader.read()
+                if (done) break
+                // stream: true holds back an incomplete UTF-8 sequence. Turkish answers are
+                // full of multi-byte characters, so a chunk splitting one is routine.
+                buffer += decoder.decode(value, { stream: true })
+                const lines = buffer.split('\n')
+                // Chunk boundaries land wherever TCP puts them, not on newlines, so the last
+                // element is usually a partial line. Carry it into the next read instead of
+                // parsing it — parsing throws, dropping it loses tokens.
+                buffer = lines.pop()
+                for (const line of lines) {
+                    if (line.trim()) handleEvent(JSON.parse(line))
+                }
             }
 
-            if (newSessionId) {
-                setSessionId(newSessionId)
-                localStorage.setItem('session_id', newSessionId)
-            }
-
-            setChatHistory(prevHistory => prevHistory.map(message =>
-                message.id === aiMessageId
-                    ? { ...message, message: responseText, isPlaceholder: false, skipTypewriter: true, timestamp, question: currentQuestion, session_id: newSessionId, apiUrl }
-                    : message
-            ))
+            buffer += decoder.decode()
+            if (buffer.trim()) handleEvent(JSON.parse(buffer))
 
         } catch (error) {
             console.error('Error:', error);
+            // Without this the placeholder stays on "Thinking...🤔" forever and gets persisted
+            // to localStorage in that state.
+            if (!errorShown) {
+                patchAiMessage({
+                    message: language === 'EN'
+                        ? 'Sorry, something went wrong. Please try again.'
+                        : 'Üzgünüm, bir şeyler ters gitti. Lütfen tekrar deneyin.',
+                    isPlaceholder: false,
+                    skipTypewriter: true,
+                    status: null
+                })
+            }
         } finally {
             setLoading(false);
         }

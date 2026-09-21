@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { FaStar, FaStarHalfStroke } from 'react-icons/fa6'
 import { toast } from 'react-toastify'
 
-const FeedbackModal = ({ onClose, question, answer, timestamp, session_id, apiUrl, language }) => {
+const FeedbackModal = ({ onClose, question, answer, timestamp, session_id, feedbackUrl, language }) => {
     const [rating, setRating] = useState(0)
     const [hoverRating, setHoverRating] = useState(0)
     const [comment, setComment] = useState('')
@@ -14,11 +14,10 @@ const FeedbackModal = ({ onClose, question, answer, timestamp, session_id, apiUr
         if (rating === 0) return
         setSubmitting(true)
         try {
-            await fetch(apiUrl, {
+            const response = await fetch(feedbackUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    action: 'feedback',
                     session_id,
                     timestamp,
                     feedback_value: rating >= 3 ? 'Positive' : 'Negative',
@@ -26,6 +25,12 @@ const FeedbackModal = ({ onClose, question, answer, timestamp, session_id, apiUr
                     ...(comment && { feedback_reason: comment })
                 })
             })
+            // The endpoint answers 404 when (session_id, timestamp) matches no stored exchange
+            // — the row aged out under the 180-day TTL, or was never written. Thanking the user
+            // for a rating that went nowhere is the one outcome worth avoiding here.
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`)
+            }
             toast.success(
                 language === 'TR' ? 'Geri bildiriminiz için teşekkürler!' : 'Thank you for your feedback!',
                 { position: 'top-left', autoClose: 3000, className: 'custom-toast' }

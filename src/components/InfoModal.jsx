@@ -57,6 +57,8 @@ const InfoModal = ({ onClose, language }) => {
       </div>
         <div className="p-2">
             <p dangerouslySetInnerHTML={{__html: displayedText}}></p>
+            {/* Outside the typewriter, so it renders immediately rather than being typed out */}
+            <p className="text-right text-xs text-[#9ca3af] mt-3">v{__APP_VERSION__}</p>
       </div>
     </div>
     </div>
