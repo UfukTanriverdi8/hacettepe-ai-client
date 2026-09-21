@@ -3,6 +3,9 @@
 ## Git Commits
 Never add a "Co-Authored-By: Claude..." line or any other self-attribution to commit messages.
 
+Work lands on `dev`, then a PR to `main` (the default branch). Never commit to `main` directly.
+No CI — there is no `.github` directory, so a PR is not checked by anything automated.
+
 ## Project Overview
 Single-page React chatbot application for Hacettepe University AI assistant.
 Built with Vite + React 18 + Tailwind CSS. Deployed to S3 + CloudFront by
@@ -166,6 +169,9 @@ npm run preview  # preview production build
 npm run lint     # ESLint
 ```
 
+`npm run lint` **fails at baseline** — 39 problems on a clean tree, almost all `react/prop-types`
+plus a few unused imports. Compare counts before and after a change rather than expecting zero.
+
 Full-stack dev needs the backend running alongside:
 ```bash
 cd ../hacettepe-ai-backend && uv run uvicorn app.main:app --reload
@@ -173,12 +179,34 @@ cd ../hacettepe-ai-backend && uv run uvicorn app.main:app --reload
 `ORIGIN_VERIFY_SECRET` unset locally makes the origin check a no-op, so no header is needed.
 Vite's proxy does not buffer, so streaming is visible in dev.
 
+## Testing
+No test runner (no `test` script, no vitest/jest). What worked for the NDJSON migration:
+- Pure logic → a standalone `node script.mjs`; the stream reader was proven against 1-byte
+  chunks, which splits every line and every multi-byte UTF-8 character.
+- Wire behavior → a mock NDJSON server on `:8000` + `curl -sN | while read` with per-line
+  timestamps. Exercises the dev proxy and proves streaming is unbuffered, with no AWS.
+
+## Deploy
+Runs from `../hacettepe-ai-backend/infra`, which reads this repo's `dist/` — `npm run build` first.
+```bash
+cd ../hacettepe-ai-backend/infra && set -a && . ../.env && set +a && . .venv/bin/activate
+npx --yes aws-cdk@2 deploy HacettepeAiFrontendStack
+```
+Both the `.env` source and the venv activation must be in the same shell as `npx`. `cdk.json`
+runs bare `python app.py`, which exists only inside `.venv`; and synth builds *both* stacks,
+so `ORIGIN_VERIFY_SECRET` and `BUDGET_ALERT_EMAIL` are required even for a frontend-only deploy.
+
+`cdk deploy` bundles the **working tree**, not a git ref — what is deployed and what is
+committed can diverge silently.
+
 ## Claude Code Hooks (`.claude/settings.json`)
 - Any Edit/Write to `.jsx`/`.js` auto-runs `eslint --fix` afterward — no need to manually re-lint a file you just edited.
-- Edits to `.env`/`.env.*` are blocked outright by a PreToolUse hook (holds live backend URLs) — ask the user to change env vars themselves.
+- Edits to `.env`/`.env.*` are blocked by a PreToolUse hook — ask the user to change it. The file is vestigial: nothing in `src/` reads `VITE_*`, and the hook's own message ("holds live backend URLs") is out of date.
 
 ## Notable Conventions
 - All components are functional with hooks
+- Semicolons are mostly omitted; `ChatInput.jsx` and `ChatConversations.jsx` are mixed.
+  Match the file you are editing — ESLint enforces neither.
 - Typewriter animation:
   - **Placeholder**: cycles through `LOADING_MESSAGES` (Turkish strings) at 45ms/char, 220ms for dots, 700ms pause between messages
     — logic lives in `src/hooks/useCyclingText.js` (reusable; also used by `LoadingScreen.jsx`).
@@ -187,7 +215,6 @@ Vite's proxy does not buffer, so streaming is visible in dev.
   - **Real AI responses**: instant display (`skipTypewriter: true` set by `ChatInput`)
   - **Greeting / initial messages** (no `skipTypewriter`): 25ms/char one-shot typewriter
   - **History on load**: instant display (`skipTypewriter: true` set by `App.jsx`)
-- Feedback button shown on AI messages after typing completes, only when `timestamp` is present
 - `GiDeerHead` icon (react-icons/gi) used as AI avatar; `FaStar`/`FaStarHalfStroke` for feedback rating
 - `dangerouslySetInnerHTML` used only in `InfoModal.jsx` for controlled bilingual HTML content
 - No routing — single view SPA
