@@ -4,7 +4,8 @@
 Never add a "Co-Authored-By: Claude..." line or any other self-attribution to commit messages.
 
 Work lands on `dev`, then a PR to `main` (the default branch). Never commit to `main` directly.
-No CI — there is no `.github` directory, so a PR is not checked by anything automated.
+No CI: `.github` holds only the PR template, so a PR is not checked by anything automated.
+Write PR bodies to `.github/PULL_REQUEST_TEMPLATE.md`'s sections.
 
 ## Project Overview
 Single-page React chatbot application for Hacettepe University AI assistant.
