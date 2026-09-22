@@ -240,7 +240,7 @@
   95% { transform: rotate(-3deg); }
 }
 
-.feedback-emoji-wiggle {
+.feedback-icon-wiggle {
   display: inline-block;
   transform-origin: 50% 70%;
   animation: feedback-wiggle 2.8s ease-in-out;
@@ -255,7 +255,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .feedback-emoji-wiggle,
+  .feedback-icon-wiggle,
   .animate-breathe {
     animation: none;
   }

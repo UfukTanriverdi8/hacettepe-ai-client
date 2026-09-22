@@ -5,29 +5,6 @@ import { toast } from 'react-toastify';
 import { Button } from '@/components/ui/button';
 import type { Language, Message, StreamEvent } from '../types';
 
-// The backend's status strings are English and defined in app/agent/tool_specs.py
-// (STATUS_MESSAGES and POST_TOOL_STATUS). An unmapped status falls through to the raw string,
-// so a tool added server-side shows something rather than nothing until this map catches up.
-const STATUS_TEXT: Record<string, Record<Language, string>> = {
-    'searching the knowledge base...': {
-        TR: 'Hacettepe kaynakları taranıyor...',
-        EN: 'Searching the knowledge base...',
-    },
-    'fetching a live page...': {
-        TR: 'Güncel sayfa çekiliyor...',
-        EN: 'Fetching a live page...',
-    },
-    // Sent once a tool's results are back, covering the stretch where the model is reasoning
-    // over them and nothing is on screen yet. Without it the tool's own status stays up for
-    // ~8s, claiming a search is still running after it finished.
-    'going through the results...': {
-        TR: 'Sonuçlar inceleniyor...',
-        EN: 'Going through the results...',
-    },
-}
-
-const localizeStatus = (message: string, language: Language) => STATUS_TEXT[message]?.[language] ?? message
-
 interface ChatInputProps {
     chatHistory: Message[]
     setChatHistory: Dispatch<SetStateAction<Message[]>>
@@ -98,7 +75,7 @@ const ChatInput = ({chatHistory, setChatHistory, sessionId, setSessionId, langua
                 case 'status':
                     // Kept as well as rendered, so a discard can put the bubble back into the
                     // state it was in before the retracted text overwrote it.
-                    lastStatus = localizeStatus(event.message, language)
+                    lastStatus = event.message
                     patchAiMessage({ status: lastStatus })
                     break
                 case 'token':

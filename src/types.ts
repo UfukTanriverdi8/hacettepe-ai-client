@@ -17,7 +17,8 @@ export interface Message {
     isPlaceholder?: boolean
     // Used to patch the placeholder as stream events arrive.
     id?: number
-    // Localized status text, shown while isPlaceholder is true. Null once text starts arriving.
+    // The backend's raw status string, shown (localized by describeStatus) while isPlaceholder is
+    // true. Null once text starts arriving.
     status?: string | null
     // DynamoDB sort key from the `done` event; gates the feedback button.
     timestamp?: string

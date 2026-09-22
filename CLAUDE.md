@@ -39,6 +39,11 @@ Hooks in `src/hooks/`:
 - `useSettings.ts` — theme and UI language: state, `localStorage`, the `.dark` class and
   `<html lang>`.
 
+`src/statusText.ts` maps each backend status string (`app/agent/tool_specs.py`) to TR/EN text
+and a lucide icon (`Search`, `Globe`, `BookOpen`). Messages store the raw string and are worded
+at render time, so a language switch mid-answer re-words the line. An unmapped status shows
+raw, with the deer. Add new backend statuses here.
+
 ## State Management
 No external state library — all prop-drilled from `App.tsx` with `localStorage` persistence.
 
@@ -86,7 +91,7 @@ Response: **NDJSON**, one JSON object per line, `Content-Type: application/x-ndj
 | `type` | Payload | Client action |
 |---|---|---|
 | `session` | `session_id` | store in state + `localStorage`; sent first, before any model work |
-| `status` | `message` (English) | localize via `STATUS_TEXT`, show in place of the cycling placeholder |
+| `status` | `message` (English) | store raw; `ChatMessage` shows it via `describeStatus` (`src/statusText.ts`): localized text, plus that step's icon in place of the deer |
 | `token` | `text` | **append** to the accumulated answer, clear `isPlaceholder` |
 | `discard` | — | drop every token so far; back to `isPlaceholder` with the last status |
 | `done` | `timestamp?` | store as the feedback key; absent when the server's write failed |
@@ -134,8 +139,8 @@ question — follow-up questions work without sending prior turns.
 
 ## Feedback System (FeedbackModal.tsx)
 
-- Triggered by "💬 Geri bildirimde bulun" button shown on AI messages after the reveal completes
-- Button has a wiggle animation (`feedback-emoji-wiggle` CSS class) on appearance
+- Triggered by the "Geri bildirimde bulun" pill (lucide `MessageSquare` icon) shown on AI messages after the reveal completes
+- Button has a wiggle animation (`feedback-icon-wiggle` CSS class) on appearance
 - Requires `timestamp` to be present on the message
 - Hidden after submission (`feedbackSubmitted` state in ChatMessage)
 - Modal contains:
@@ -170,7 +175,7 @@ question — follow-up questions work without sending prior turns.
 - `.markdown` in `index.css` styles answers (lists, links, tables, code). The typography plugin
   is not installed; Tailwind's preflight otherwise strips list bullets.
 - Scrollbar: global in `@layer base`, thin, thumb `--scrollbar`, no track.
-- `feedback-emoji-wiggle`: one-shot damped rotation (8° → 6° → 3°) on feedback button
+- `feedback-icon-wiggle`: one-shot damped rotation (8° → 6° → 3°) on feedback button
   appearance. `animate-breathe` pulses the deer while an answer is pending. Both respect
   `prefers-reduced-motion`.
 

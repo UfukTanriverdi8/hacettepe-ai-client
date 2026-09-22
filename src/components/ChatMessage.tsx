@@ -1,10 +1,12 @@
 import { useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import { MessageSquare } from 'lucide-react'
 import DeerMark from './DeerMark'
 import FeedbackModal from './FeedbackModal'
 import { useCyclingText } from '../hooks/useCyclingText'
 import { useSmoothedText } from '../hooks/useSmoothedText'
+import { describeStatus } from '../statusText'
 import type { Language, Message } from '../types'
 
 // Claims only what is true of the window it covers: the seconds before the backend's first
@@ -36,6 +38,10 @@ const ChatMessage = ({ sender, message, isPlaceholder, status, timestamp, sessio
     // it appear on the `done` event while the smoother is still catching up.
     const isTypingComplete = displayedMsg === message
     const showFeedbackButton = sender === 'AI' && !isPlaceholder && isTypingComplete && timestamp && !feedbackSubmitted
+    // Before the first status the placeholder only knows the question was sent, so the deer
+    // waits; once the server says what it is doing, that step's icon stands in until text arrives.
+    const pending = status ? describeStatus(status, language) : null
+    const PendingIcon = pending?.icon
 
     if (sender === 'Human') {
         return (
@@ -47,12 +53,14 @@ const ChatMessage = ({ sender, message, isPlaceholder, status, timestamp, sessio
 
     return (
         <div className="flex items-start gap-3">
-            <DeerMark className={`mt-0.5 size-6 shrink-0 ${isPlaceholder ? 'animate-breathe text-muted-foreground' : 'text-primary'}`} />
+            {isPlaceholder && PendingIcon
+                ? <PendingIcon aria-hidden="true" strokeWidth={1.7} className="mt-0.5 size-6 shrink-0 animate-breathe p-0.5 text-muted-foreground" />
+                : <DeerMark className={`mt-0.5 size-6 shrink-0 ${isPlaceholder ? 'animate-breathe text-muted-foreground' : 'text-primary'}`} />}
             <div className="flex min-w-0 flex-1 flex-col items-start">
                 {isPlaceholder ? (
                     // The cycling animation covers the seconds before the backend reports what it
                     // is actually doing; a real status event takes over from there.
-                    <p className="text-muted-foreground" aria-live="polite">{status || cyclingMsg}</p>
+                    <p className="text-muted-foreground" aria-live="polite">{pending?.text ?? cyclingMsg}</p>
                 ) : (
                     <div className="markdown w-full">
                         <ReactMarkdown remarkPlugins={[remarkGfm]}>
@@ -63,9 +71,9 @@ const ChatMessage = ({ sender, message, isPlaceholder, status, timestamp, sessio
                 {showFeedbackButton && (
                     <button
                         onClick={() => setShowFeedbackModal(true)}
-                        className="mt-3 rounded-full border px-3 py-1 text-[13px] text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+                        className="mt-3 inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[13px] text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
                     >
-                        <span className="feedback-emoji-wiggle">💬</span>{' '}
+                        <MessageSquare aria-hidden="true" className="feedback-icon-wiggle size-3.5" />
                         {language === 'TR' ? 'Geri bildirimde bulun' : 'Give feedback'}
                     </button>
                 )}
