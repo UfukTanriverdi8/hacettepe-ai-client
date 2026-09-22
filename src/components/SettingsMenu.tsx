@@ -24,8 +24,8 @@ const SettingsMenu = ({ theme, setTheme, language, setLanguage }: SettingsMenuPr
             <Tooltip>
                 <TooltipTrigger asChild>
                     <PopoverTrigger asChild>
-                        <Button variant="ghost" size="icon" aria-label={label} className="text-muted-foreground">
-                            <SlidersHorizontal className="size-[18px]" />
+                        <Button variant="ghost" size="icon" aria-label={label} className="size-10 text-muted-foreground">
+                            <SlidersHorizontal className="size-5" />
                         </Button>
                     </PopoverTrigger>
                 </TooltipTrigger>

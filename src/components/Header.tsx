@@ -18,7 +18,7 @@ interface HeaderProps {
 const IconButton = ({ label, onClick, children }: { label: string; onClick: () => void; children: ReactNode }) => (
     <Tooltip>
         <TooltipTrigger asChild>
-            <Button variant="ghost" size="icon" aria-label={label} onClick={onClick} className="text-muted-foreground">
+            <Button variant="ghost" size="icon" aria-label={label} onClick={onClick} className="size-10 text-muted-foreground">
                 {children}
             </Button>
         </TooltipTrigger>
@@ -30,20 +30,20 @@ const Header = ({ language, setLanguage, theme, setTheme, hasChat, onNewChat, on
     const tr = language === 'TR'
 
     return (
-        <header className="flex shrink-0 items-center justify-between px-4 py-2.5 sm:px-5">
-            <h1 className="text-lg font-semibold tracking-tight">
+        <header className="flex shrink-0 items-center justify-between py-2 pr-2.5 pl-4 sm:pr-3.5 sm:pl-5">
+            <h1 className="text-xl font-semibold tracking-tight">
                 hacettepe <span className="text-primary">ai</span>
             </h1>
             <div className="flex items-center gap-0.5">
                 {/* Nothing to clear on an empty chat, so the button only appears once there is. */}
                 {hasChat && (
                     <IconButton label={tr ? 'Yeni sohbet' : 'New chat'} onClick={onNewChat}>
-                        <Plus className="size-[18px]" />
+                        <Plus className="size-5" />
                     </IconButton>
                 )}
                 <SettingsMenu theme={theme} setTheme={setTheme} language={language} setLanguage={setLanguage} />
                 <IconButton label={tr ? 'Hakkında' : 'About'} onClick={onInfoClick}>
-                    <Info className="size-[18px]" />
+                    <Info className="size-5" />
                 </IconButton>
             </div>
         </header>
