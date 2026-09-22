@@ -1,102 +1,262 @@
 @import 'tailwindcss';
+@import 'tw-animate-css';
+@import 'shadcn/tailwind.css';
 
-@theme {
-  --color-*: initial;
-  --color-primary: #050609;
-  --color-secondary: #b72e2e;
-  --color-tertiary: #edf2f4;
-  --color-black: #1c1c1c;
-  --color-secondary-red: #b5172f;
-  --color-white-text: #ffffff;
-
-  --font-sans: Inter, sans-serif;
-
-  /* v3's default ring color; v4 falls back to currentcolor */
-  --default-ring-color: rgb(59 130 246 / 0.5);
-}
+/* `.dark` on <html>, set by index.html's inline script and then by useSettings. */
+@custom-variant dark (&:is(.dark *));
 
 /*
-  v3 defaults that v4 changed, kept so the upgrade alone changes nothing visible. Borders need
-  no shim: `--color-*: initial` removed the gray palette, so v3 already fell back to
-  currentcolor, which is v4's default.
+  Direction A ("Sakin"). Every color is a role, defined once per theme below; components use
+  the role names (bg-background, text-muted-foreground, ...), never a hex value.
 */
+:root {
+  --background: #fbfafa;
+  --foreground: #1f1a1b;
+  --muted: #f2efef;             /* composer, hover fills */
+  --muted-foreground: #6e6466;
+  --popover: #ffffff;           /* raised: menus, dialogs */
+  --popover-foreground: #1f1a1b;
+  --card: #ffffff;
+  --card-foreground: #1f1a1b;
+  --primary: #b72e2e;           /* Hacettepe red: send button, wordmark, deer */
+  --primary-foreground: #ffffff;
+  --secondary: #efe9e9;         /* the user's question pill */
+  --secondary-foreground: #1f1a1b;
+  --accent: #f2efef;
+  --accent-foreground: #1f1a1b;
+  --destructive: #c42b2b;
+  --border: #e2dcdc;
+  --input: #e2dcdc;
+  --ring: #b72e2e;
+  --star: #d99a1e;
+  --scrollbar: #d5cdce;
+  --radius: 0.75rem;
+}
+
+.dark {
+  --background: #161314;
+  --foreground: #efeaea;
+  --muted: #211c1d;
+  --muted-foreground: #a39a9b;
+  --popover: #262021;
+  --popover-foreground: #efeaea;
+  --card: #262021;
+  --card-foreground: #efeaea;
+  --primary: #d8494a;
+  --primary-foreground: #ffffff;
+  --secondary: #2a2324;
+  --secondary-foreground: #efeaea;
+  --accent: #211c1d;
+  --accent-foreground: #efeaea;
+  --destructive: #e25555;
+  --border: #342d2e;
+  --input: #342d2e;
+  --ring: #d8494a;
+  --star: #e8b04a;
+  --scrollbar: #3f3637;
+}
+
+@theme inline {
+  --color-*: initial;
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-star: var(--star);
+  --color-black: #000;
+  --color-white: #fff;
+  --color-transparent: transparent;
+
+  --font-sans: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-heading: var(--font-sans);
+
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
 @layer base {
-  input::placeholder,
-  textarea::placeholder {
-    color: #9ca3af;
+  * {
+    @apply border-border outline-ring/50;
   }
-
-  /* v4's preflight zeroes padding on every element; v3 left table cells at the browser's 1px */
-  td,
-  th {
-    padding: 1px;
+  html {
+    @apply font-sans;
+    color-scheme: light;
   }
-
+  html.dark {
+    color-scheme: dark;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
   button:not(:disabled),
   [role="button"]:not(:disabled) {
     cursor: pointer;
   }
-}
-
-.scrollable {
-    scrollbar-width: thin;
-    scrollbar-color: #b72e2e #1c1c1c;
+  ::placeholder {
+    color: var(--muted-foreground);
   }
 
-.scroll-container{
-    scroll-behavior: smooth;
+  /* Thin, no track, thumb in the border tone. Firefox reads the two properties, Chromium and
+     Safari the pseudo-elements. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--scrollbar) transparent;
+  }
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--scrollbar);
+    border-radius: 999px;
+    border: 3px solid transparent;
+    background-clip: content-box;
+  }
+}
+
+/* Answers arrive as Markdown. Tailwind's preflight strips list bullets and heading sizes, and
+   the typography plugin is not installed, so this puts back what answers actually use. */
+.markdown {
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+}
+.markdown > * + * {
+  margin-top: 0.75em;
+}
+.markdown h1,
+.markdown h2,
+.markdown h3,
+.markdown h4 {
+  font-weight: 600;
+  line-height: 1.3;
+  margin-top: 1.25em;
+}
+.markdown h1 { font-size: 1.25em; }
+.markdown h2 { font-size: 1.15em; }
+.markdown h3,
+.markdown h4 { font-size: 1em; }
+.markdown ul,
+.markdown ol {
+  padding-left: 1.4em;
+}
+.markdown ul { list-style: disc; }
+.markdown ol { list-style: decimal; }
+.markdown li + li,
+.markdown li > ul,
+.markdown li > ol {
+  margin-top: 0.3em;
+}
+.markdown li::marker {
+  color: var(--muted-foreground);
+}
+.markdown a {
+  color: var(--primary);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.markdown strong {
+  font-weight: 600;
+}
+.markdown code {
+  font-size: 0.9em;
+  background: var(--muted);
+  border-radius: 4px;
+  padding: 0.1em 0.35em;
+}
+.markdown pre {
+  background: var(--muted);
+  border-radius: var(--radius-md);
+  padding: 0.75em 1em;
+  overflow-x: auto;
+}
+.markdown pre code {
+  background: none;
+  padding: 0;
+}
+.markdown blockquote {
+  border-left: 3px solid var(--border);
+  padding-left: 1em;
+  color: var(--muted-foreground);
+}
+.markdown table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+  font-size: 0.93em;
+}
+.markdown th,
+.markdown td {
+  border: 1px solid var(--border);
+  padding: 0.4em 0.7em;
+  text-align: left;
+}
+.markdown th {
+  background: var(--muted);
+  font-weight: 600;
 }
 
 .custom-toast {
-    background-color: black;
-    color: #EDF2F4; /* text color */
-  }
-  
-  .custom-toast .Toastify__close-button {
-    color: #EDF2F4; /* color of the close button */
-  }
-  
-  .custom-toast .Toastify__progress-bar {
-    background-color: #e21936; /* color of the progress bar */
-  }
-
-  @keyframes feedback-wiggle {
-    0%, 70%, 100% {
-      transform: rotate(0deg);
-    }
-    75% {
-      transform: rotate(-8deg);
-    }
-    80% {
-      transform: rotate(8deg);
-    }
-    85% {
-      transform: rotate(-6deg);
-    }
-    90% {
-      transform: rotate(6deg);
-    }
-    95% {
-      transform: rotate(-3deg);
-    }
-  }
-
-  .feedback-emoji-wiggle {
-    display: inline-block;
-    transform-origin: 50% 70%;
-    animation: feedback-wiggle 2.8s ease-in-out;
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .feedback-emoji-wiggle {
-      animation: none;
-    }
-  }
-
-/* .normal_cursor{
-    color: #e21936;
+  background-color: var(--popover);
+  color: var(--popover-foreground);
+  border: 1px solid var(--border);
+  font-family: var(--font-sans);
+}
+.custom-toast .Toastify__close-button {
+  color: var(--muted-foreground);
+}
+.custom-toast .Toastify__progress-bar {
+  background-color: var(--primary);
 }
 
-.hidden_cursor{
-    color: black;
-} */
+@keyframes feedback-wiggle {
+  0%, 70%, 100% { transform: rotate(0deg); }
+  75% { transform: rotate(-8deg); }
+  80% { transform: rotate(8deg); }
+  85% { transform: rotate(-6deg); }
+  90% { transform: rotate(6deg); }
+  95% { transform: rotate(-3deg); }
+}
+
+.feedback-emoji-wiggle {
+  display: inline-block;
+  transform-origin: 50% 70%;
+  animation: feedback-wiggle 2.8s ease-in-out;
+}
+
+/* The deer while an answer is still pending. */
+@keyframes breathe {
+  50% { opacity: 0.4; }
+}
+.animate-breathe {
+  animation: breathe 1.6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .feedback-emoji-wiggle,
+  .animate-breathe {
+    animation: none;
+  }
+}

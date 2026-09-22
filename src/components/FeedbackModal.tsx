@@ -1,9 +1,13 @@
 import { useState } from 'react'
 import { FaStar, FaStarHalfStroke } from 'react-icons/fa6'
 import { toast } from 'react-toastify'
+import { Button } from '@/components/ui/button'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Textarea } from '@/components/ui/textarea'
 import type { Language } from '../types'
 
 interface FeedbackModalProps {
+    open: boolean
     // true when the rating was stored, which hides the feedback button for good
     onClose: (submitted: boolean) => void
     timestamp: string
@@ -12,7 +16,7 @@ interface FeedbackModalProps {
     language: Language
 }
 
-const FeedbackModal = ({ onClose, timestamp, session_id, feedbackUrl, language }: FeedbackModalProps) => {
+const FeedbackModal = ({ open, onClose, timestamp, session_id, feedbackUrl, language }: FeedbackModalProps) => {
     const [rating, setRating] = useState(0)
     const [hoverRating, setHoverRating] = useState(0)
     const [comment, setComment] = useState('')
@@ -58,84 +62,84 @@ const FeedbackModal = ({ onClose, timestamp, session_id, feedbackUrl, language }
         }
     }
 
+    const tr = language === 'TR'
+
     return (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-            <div className="bg-primary border border-secondary rounded-lg p-6 w-full max-w-md mx-4">
-                <h2 className="text-tertiary text-lg font-bold mb-4">
-                    {language === 'TR' ? 'Geri Bildirim' : 'Feedback'}
-                </h2>
+        <Dialog open={open} onOpenChange={(isOpen) => { if (!isOpen) onClose(false) }}>
+            <DialogContent closeLabel={tr ? 'Kapat' : 'Close'} className="gap-5 p-5 sm:max-w-md">
+                <DialogHeader>
+                    <DialogTitle>{tr ? 'Geri bildirim' : 'Feedback'}</DialogTitle>
+                    <DialogDescription>
+                        {tr ? 'Bu yanıtı nasıl değerlendirirsiniz?' : 'How would you rate this response?'}
+                    </DialogDescription>
+                </DialogHeader>
 
-                {/* Star Rating */}
-                <div className="mb-4">
-                    <p className="text-[#9ca3af] text-sm mb-2">
-                        {language === 'TR' ? 'Bu yanıtı nasıl değerlendirirsiniz?' : 'How would you rate this response?'}
-                    </p>
-                    <div className="flex gap-1" onMouseLeave={() => setHoverRating(0)}>
-                        {[1, 2, 3, 4, 5].map(star => (
+                {/* Star Rating. The halves take the mouse; the slider role and arrow keys make
+                    the same half-star steps reachable from the keyboard and to screen readers. */}
+                <div
+                    role="slider"
+                    tabIndex={0}
+                    aria-label={tr ? 'Puan' : 'Rating'}
+                    aria-valuemin={0}
+                    aria-valuemax={5}
+                    aria-valuenow={rating}
+                    aria-valuetext={`${rating} / 5`}
+                    onKeyDown={e => {
+                        const step: Record<string, number> = { ArrowRight: 0.5, ArrowUp: 0.5, ArrowLeft: -0.5, ArrowDown: -0.5 }
+                        if (e.key in step) setRating(r => Math.min(5, Math.max(0, r + step[e.key])))
+                        else if (e.key === 'Home') setRating(0)
+                        else if (e.key === 'End') setRating(5)
+                        else return
+                        e.preventDefault()
+                    }}
+                    className="flex w-fit gap-1 rounded-md outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+                    onMouseLeave={() => setHoverRating(0)}
+                >
+                    {[1, 2, 3, 4, 5].map(star => (
+                        <div key={star} className="relative size-8 cursor-pointer text-[28px]">
+                            {/* Left half triggers half-star */}
                             <div
-                                key={star}
-                                className="relative cursor-pointer text-2xl"
-                                style={{ width: '1.75rem', height: '1.75rem' }}
-                            >
-                                {/* Left half triggers half-star */}
-                                <div
-                                    className="absolute inset-y-0 left-0 w-1/2 z-10"
-                                    onMouseEnter={() => setHoverRating(star - 0.5)}
-                                    onClick={() => setRating(star - 0.5)}
-                                />
-                                {/* Right half triggers full star */}
-                                <div
-                                    className="absolute inset-y-0 right-0 w-1/2 z-10"
-                                    onMouseEnter={() => setHoverRating(star)}
-                                    onClick={() => setRating(star)}
-                                />
-                                {activeRating >= star
-                                    ? <FaStar className="text-yellow-400" />
-                                    : activeRating >= star - 0.5
-                                    ? <FaStarHalfStroke className="text-yellow-400" />
-                                    : <FaStar className="text-[#4b5563]" />
-                                }
-                            </div>
-                        ))}
-                    </div>
+                                className="absolute inset-y-0 left-0 z-10 w-1/2"
+                                onMouseEnter={() => setHoverRating(star - 0.5)}
+                                onClick={() => setRating(star - 0.5)}
+                            />
+                            {/* Right half triggers full star */}
+                            <div
+                                className="absolute inset-y-0 right-0 z-10 w-1/2"
+                                onMouseEnter={() => setHoverRating(star)}
+                                onClick={() => setRating(star)}
+                            />
+                            {activeRating >= star
+                                ? <FaStar className="text-star" />
+                                : activeRating >= star - 0.5
+                                ? <FaStarHalfStroke className="text-star" />
+                                : <FaStar className="text-border" />
+                            }
+                        </div>
+                    ))}
                 </div>
 
-                {/* Comment */}
-                <div className="mb-6">
-                    <textarea
-                        value={comment}
-                        onChange={e => setComment(e.target.value)}
-                        placeholder={language === 'TR' ? 'Yorumunuz (isteğe bağlı)' : 'Your comment (optional)'}
-                        rows={3}
-                        className="w-full px-3 py-2 bg-black text-tertiary rounded-lg border border-primary focus:border-secondary focus:outline-hidden resize-none text-sm"
-                    />
-                </div>
+                <Textarea
+                    value={comment}
+                    onChange={e => setComment(e.target.value)}
+                    placeholder={tr ? 'Yorumunuz (isteğe bağlı)' : 'Your comment (optional)'}
+                    rows={3}
+                    className="min-h-20 resize-none bg-muted text-sm dark:bg-muted"
+                />
 
-                {/* Buttons */}
-                <div className="flex justify-end gap-3">
-                    <button
-                        onClick={() => onClose(false)}
-                        className="px-4 py-2 text-sm text-[#9ca3af] hover:text-tertiary transition-colors duration-200"
-                    >
-                        {language === 'TR' ? 'İptal' : 'Cancel'}
-                    </button>
-                    <button
-                        onClick={handleSubmit}
-                        disabled={rating === 0 || submitting}
-                        className={`px-4 py-2 text-sm font-bold rounded-md transition-all duration-200 ${
-                            rating === 0 || submitting
-                                ? 'bg-[#4b5563] text-[#9ca3af] cursor-not-allowed'
-                                : 'bg-secondary text-tertiary hover:opacity-90'
-                        }`}
-                    >
+                <DialogFooter className="mx-0 mb-0 border-t-0 bg-transparent p-0">
+                    <Button variant="ghost" onClick={() => onClose(false)}>
+                        {tr ? 'İptal' : 'Cancel'}
+                    </Button>
+                    <Button onClick={handleSubmit} disabled={rating === 0 || submitting}>
                         {submitting
-                            ? (language === 'TR' ? 'Gönderiliyor...' : 'Sending...')
-                            : (language === 'TR' ? 'Gönder' : 'Submit')
+                            ? (tr ? 'Gönderiliyor...' : 'Sending...')
+                            : (tr ? 'Gönder' : 'Submit')
                         }
-                    </button>
-                </div>
-            </div>
-        </div>
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
     )
 }
 

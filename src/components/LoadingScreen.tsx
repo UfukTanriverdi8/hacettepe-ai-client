@@ -1,15 +1,20 @@
-import { GiDeerHead } from "react-icons/gi"
+import DeerMark from './DeerMark'
 import { useCyclingText } from '../hooks/useCyclingText'
+import type { Language } from '../types'
 
-const LOADING_MESSAGES = ['🦌 Bağlanılıyor...', '⚙️ Yapılandırma yükleniyor...']
+// Module-level so the arrays keep their identity: useCyclingText restarts when they change.
+const LOADING_MESSAGES: Record<Language, readonly string[]> = {
+    TR: ['Bağlanılıyor...', 'Yapılandırma yükleniyor...'],
+    EN: ['Connecting...', 'Loading configuration...'],
+}
 
-const LoadingScreen = () => {
-    const cyclingMsg = useCyclingText(LOADING_MESSAGES)
+const LoadingScreen = ({ language }: { language: Language }) => {
+    const cyclingMsg = useCyclingText(LOADING_MESSAGES[language])
 
     return (
-        <div className="flex flex-col items-center justify-center h-screen bg-primary/85 text-tertiary">
-            <GiDeerHead className="text-5xl text-secondary mb-4" />
-            <p className="text-[#9ca3af]">{cyclingMsg}</p>
+        <div className="flex h-dvh flex-col items-center justify-center gap-4 bg-background">
+            <DeerMark className="size-12 animate-breathe text-primary" />
+            <p className="text-muted-foreground">{cyclingMsg}</p>
         </div>
     )
 }

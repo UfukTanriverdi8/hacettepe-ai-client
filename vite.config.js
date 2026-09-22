@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
@@ -16,6 +17,9 @@ const backend = 'http://localhost:8000'
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
+  resolve: {
+    alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
+  },
   // Textual replacement, so the value has to arrive as a JSON string literal.
   define: {
     __APP_VERSION__: JSON.stringify(pkg.version),

@@ -1,44 +1,42 @@
 import Header from './components/Header'
 import ChatConversations from './components/ChatConversations'
 import ChatInput from './components/ChatInput'
-import Footer from './components/Footer'
+import DeerMark from './components/DeerMark'
 import InfoModal from './components/InfoModal'
+import NewChatDialog from './components/NewChatDialog'
 import LoadingScreen from './components/LoadingScreen'
 import ConfigErrorScreen from './components/ConfigErrorScreen'
+import { TooltipProvider } from '@/components/ui/tooltip'
 import { loadConfig } from './config'
+import { useSettings } from './hooks/useSettings'
 import { useState, useEffect } from 'react'
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.min.css';
-import type { AppConfig, Language, Message } from './types'
+import type { AppConfig, Message } from './types'
 
 const App =  () => {
-    const [openModal, setOpenModal] = useState(false)
-    const toggleModal = () => {
-        setOpenModal(!openModal)  // Toggle the modal's open state
-    };
+    const { theme, setTheme, language, setLanguage } = useSettings()
+    const [infoOpen, setInfoOpen] = useState(false)
+    const [newChatOpen, setNewChatOpen] = useState(false)
 
     const [chatHistory, setChatHistory] = useState<Message[]>(() => {
         // Retrieve chat history from localStorage or default to []
         const savedChatHistory = localStorage.getItem('chatHistory')
-        if (savedChatHistory) {
-            const parsed: Message[] = JSON.parse(savedChatHistory)
-            // Mark all loaded messages to skip typewriter effect
-            return parsed.map(msg => ({ ...msg, skipTypewriter: true }))
-        }
-        return []
+        return savedChatHistory ? JSON.parse(savedChatHistory) : []
     })
-    
+
     useEffect(() => {
         // Store chat history in localStorage when it changes
         localStorage.setItem('chatHistory', JSON.stringify(chatHistory))
     }, [chatHistory])
 
-    // Pinned while there is no way to change it. The EN strings stay in the components for a
-    // future settings page; the stored key is dropped so an earlier EN choice does not stick.
-    const language: Language = 'TR'
-    useEffect(() => {
-        localStorage.removeItem('language')
-    }, [])
+    const [sessionId, setSessionId] = useState<string | null>(() => localStorage.getItem('session_id'))
+
+    const startNewChat = () => {
+        setChatHistory([])
+        setSessionId(null)
+        localStorage.removeItem('session_id')
+    }
 
     const [config, setConfig] = useState<AppConfig | null>(null)
     const [configError, setConfigError] = useState<unknown>(null)
@@ -60,20 +58,70 @@ const App =  () => {
     }
 
     if (!config) {
-        return <LoadingScreen />
+        return <LoadingScreen language={language} />
     }
 
+    const tr = language === 'TR'
+    const hasChat = chatHistory.length > 0
+
+    // One tree for both states, so ChatInput never remounts: it holds the in-flight request and
+    // its loading flag, and a remount on the first question would drop both mid-stream. Instead
+    // the spacers around the composer give their height to the conversation as it fills in,
+    // which is what slides the composer from the middle of the page to the bottom.
+    const grow = (value: number) => ({ flexGrow: value })
+
     return (
-    <div className="flex flex-col h-screen bg-primary/85 text-tertiary">
-        <Header />
-        <div className="grow overflow-auto scrollable max-h-full">
-        <ChatConversations chatHistory={chatHistory} language={language} feedbackUrl={config.feedbackUrl} />
-        </div>
-        <ChatInput language={language} chatHistory={chatHistory} setChatHistory={setChatHistory} chatUrl={config.chatUrl} />
-        {openModal && <InfoModal language={language} onClose={toggleModal} />}
-        <Footer onInfoClick={toggleModal} />
+    <TooltipProvider delayDuration={400}>
+    <div className="flex h-dvh flex-col bg-background text-foreground">
+        <Header
+            language={language}
+            setLanguage={setLanguage}
+            theme={theme}
+            setTheme={setTheme}
+            hasChat={hasChat}
+            onNewChat={() => setNewChatOpen(true)}
+            onInfoClick={() => setInfoOpen(true)}
+        />
+        <main className="flex min-h-0 flex-1 flex-col">
+            <div aria-hidden="true" style={grow(hasChat ? 0 : 1)} className="basis-0 transition-[flex-grow] duration-500 ease-out motion-reduce:transition-none" />
+            <ChatConversations chatHistory={chatHistory} language={language} feedbackUrl={config.feedbackUrl} style={grow(hasChat ? 1 : 0)} />
+            {/* Collapses by animating its grid row from 1fr to 0fr, which a height transition
+                cannot do for content of unknown height. */}
+            <div
+                aria-hidden={hasChat}
+                className={`grid transition-[grid-template-rows,opacity] duration-400 ease-out motion-reduce:transition-none ${hasChat ? 'grid-rows-[0fr] opacity-0' : 'grid-rows-[1fr] opacity-100'}`}
+            >
+                <div className="overflow-hidden">
+                    <div className="flex flex-col items-center gap-3 px-4 pb-6 text-center">
+                        <DeerMark className="size-10 text-primary" />
+                        <h2 className="text-2xl font-medium tracking-tight text-balance">
+                            {tr ? 'Merhaba! Bugün size nasıl yardımcı olabilirim?' : 'Hello! How can I help you today?'}
+                        </h2>
+                    </div>
+                </div>
+            </div>
+            <div className="mx-auto w-full max-w-3xl shrink-0 px-4">
+                <ChatInput
+                    language={language}
+                    chatHistory={chatHistory}
+                    setChatHistory={setChatHistory}
+                    sessionId={sessionId}
+                    setSessionId={setSessionId}
+                    chatUrl={config.chatUrl}
+                />
+                <p className="px-2 pt-2 pb-3 text-center text-xs text-muted-foreground">
+                    {tr
+                        ? 'Hacettepe AI hata yapabilir. Önemli bilgileri resmi duyurulardan doğrulayın.'
+                        : 'Hacettepe AI can make mistakes. Check important details against official announcements.'}
+                </p>
+            </div>
+            <div aria-hidden="true" style={grow(hasChat ? 0 : 1.4)} className="basis-0 transition-[flex-grow] duration-500 ease-out motion-reduce:transition-none" />
+        </main>
+        <InfoModal open={infoOpen} onClose={() => setInfoOpen(false)} language={language} />
+        <NewChatDialog open={newChatOpen} onOpenChange={setNewChatOpen} onConfirm={startNewChat} language={language} />
         <ToastContainer />
     </div>
+    </TooltipProvider>
     )
 }
 

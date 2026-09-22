@@ -1,5 +1,8 @@
 export type Language = 'EN' | 'TR'
 
+/** 'system' follows prefers-color-scheme and keeps following it while the page is open. */
+export type ThemePreference = 'system' | 'light' | 'dark'
+
 /** The shape of /config.json, loaded once at startup by loadConfig(). */
 export interface AppConfig {
     chatUrl: string
@@ -12,9 +15,6 @@ export interface Message {
     // True until the first `token` event, and true again after a `discard` retracts the tokens
     // that already arrived.
     isPlaceholder?: boolean
-    // Set on everything except the greeting; ChatMessage reads it as "do not run the fixed-rate
-    // typewriter".
-    skipTypewriter?: boolean
     // Used to patch the placeholder as stream events arrive.
     id?: number
     // Localized status text, shown while isPlaceholder is true. Null once text starts arriving.

@@ -42,4 +42,11 @@ export default [
   // Last, so it can switch off the base rules TypeScript already covers (no-undef,
   // no-unused-vars) for src. The plain-JS config files and scripts keep them.
   ...tseslint.configs.recommended.map(config => ({ ...config, files: ['src/**/*.{ts,tsx}'] })),
+  // shadcn's generated files export their variant helpers next to the component (buttonVariants,
+  // toggleVariants). Splitting them would diverge from upstream and make `shadcn add` updates
+  // harder to diff, for a fast-refresh edge case in dev only.
+  {
+    files: ['src/components/ui/**'],
+    rules: { 'react-refresh/only-export-components': 'off' },
+  },
 ]

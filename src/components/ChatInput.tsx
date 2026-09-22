@@ -1,6 +1,8 @@
-import { FaArrowUp, FaTrashCan } from "react-icons/fa6";
-import { useState} from 'react';
-import type { Dispatch, KeyboardEvent, SetStateAction } from 'react';
+import { ArrowUp } from 'lucide-react';
+import { useState } from 'react';
+import type { Dispatch, FormEvent, SetStateAction } from 'react';
+import { toast } from 'react-toastify';
+import { Button } from '@/components/ui/button';
 import type { Language, Message, StreamEvent } from '../types';
 
 // The backend's status strings are English and defined in app/agent/tool_specs.py
@@ -8,19 +10,19 @@ import type { Language, Message, StreamEvent } from '../types';
 // so a tool added server-side shows something rather than nothing until this map catches up.
 const STATUS_TEXT: Record<string, Record<Language, string>> = {
     'searching the knowledge base...': {
-        TR: '🦌 Hacettepe kaynakları taranıyor...',
-        EN: '🦌 Searching the knowledge base...',
+        TR: 'Hacettepe kaynakları taranıyor...',
+        EN: 'Searching the knowledge base...',
     },
     'fetching a live page...': {
-        TR: '🌐 Güncel sayfa getiriliyor...',
-        EN: '🌐 Fetching a live page...',
+        TR: 'Güncel sayfa getiriliyor...',
+        EN: 'Fetching a live page...',
     },
     // Sent once a tool's results are back, covering the stretch where the model is reasoning
     // over them and nothing is on screen yet. Without it the tool's own status stays up for
     // ~8s, claiming a search is still running after it finished.
     'going through the results...': {
-        TR: '📖 Sonuçlar inceleniyor...',
-        EN: '📖 Going through the results...',
+        TR: 'Sonuçlar inceleniyor...',
+        EN: 'Going through the results...',
     },
 }
 
@@ -29,37 +31,31 @@ const localizeStatus = (message: string, language: Language) => STATUS_TEXT[mess
 interface ChatInputProps {
     chatHistory: Message[]
     setChatHistory: Dispatch<SetStateAction<Message[]>>
+    // Owned by App, because the header's new-chat button clears it too.
+    sessionId: string | null
+    setSessionId: (sessionId: string | null) => void
     language: Language
     chatUrl: string
 }
 
-const ChatInput = ({chatHistory, setChatHistory, language, chatUrl}: ChatInputProps) => {
+const ChatInput = ({chatHistory, setChatHistory, sessionId, setSessionId, language, chatUrl}: ChatInputProps) => {
     const [inputValue, setInputValue] = useState('');
     const [loading, setLoading] = useState(false);
-    const [sessionId, setSessionId] = useState<string | null>(() => {
-        const savedSessionId = localStorage.getItem('session_id');
-        return savedSessionId ? savedSessionId : null;
-    });
 
-    const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
-        if (e.key === 'Enter') {
-          e.preventDefault()
-          sendPrompt()
-        }
-      }
-
-      const sendPrompt = async () => {
+      const sendPrompt = async (e: FormEvent<HTMLFormElement>) => {
+        e.preventDefault()
         if(loading) return
-        if (inputValue === '') return
+        if (inputValue.trim() === '') return
 
         const currentQuestion = inputValue
         setInputValue('')
         setLoading(true)
 
         if(chatHistory.length >= 30){
-            const maxLimitEN = "You have reached the maximum chat history limit. Please clear the chat history to continue."
-            const maxLimitTR = "Maksimum mesaj sınırına ulaştınız. Devam etmek için lütfen sohbet geçmişini temizleyin."
-            alert(language === 'EN' ? maxLimitEN : maxLimitTR)
+            const maxLimitEN = "This chat has reached its message limit. Start a new chat to keep asking."
+            const maxLimitTR = "Bu sohbet mesaj sınırına ulaştı. Sormaya devam etmek için yeni bir sohbet başlatın."
+            toast.info(language === 'EN' ? maxLimitEN : maxLimitTR, { position: 'top-center', className: 'custom-toast' })
+            setInputValue(currentQuestion)
             setLoading(false)
             return
         }
@@ -110,7 +106,7 @@ const ChatInput = ({chatHistory, setChatHistory, language, chatUrl}: ChatInputPr
                     // answer. ChatMessage smooths the arrival rate, so the lumpiness the
                     // network imposes on these does not reach the screen.
                     answer += event.text
-                    patchAiMessage({ message: answer, isPlaceholder: false, skipTypewriter: true, status: null })
+                    patchAiMessage({ message: answer, isPlaceholder: false, status: null })
                     break
                 case 'discard':
                     // Everything streamed so far was the model narrating a tool call it was
@@ -129,7 +125,7 @@ const ChatInput = ({chatHistory, setChatHistory, language, chatUrl}: ChatInputPr
                     break
                 case 'error':
                     errorShown = true
-                    patchAiMessage({ message: event.message, isPlaceholder: false, skipTypewriter: true, status: null })
+                    patchAiMessage({ message: event.message, isPlaceholder: false, status: null })
                     break
             }
         }
@@ -182,7 +178,6 @@ const ChatInput = ({chatHistory, setChatHistory, language, chatUrl}: ChatInputPr
                         ? 'Sorry, something went wrong. Please try again.'
                         : 'Üzgünüm, bir şeyler ters gitti. Lütfen tekrar deneyin.',
                     isPlaceholder: false,
-                    skipTypewriter: true,
                     status: null
                 })
             }
@@ -191,45 +186,34 @@ const ChatInput = ({chatHistory, setChatHistory, language, chatUrl}: ChatInputPr
         }
     }
 
-    const clearChat = () => {
-        if (confirm("Sohbet geçmişini temizlemek istediğine emin misiniz?") == true) {
-            setChatHistory([])
-            setSessionId(null)
-            localStorage.removeItem('session_id')
-        }
-      }
+    const label = language === 'EN' ? 'What would you like to know about Hacettepe?' : 'Hacettepe hakkında ne öğrenmek istersiniz?'
 
     return (
-        <div className="flex justify-center items-center p-2 pt-0">
-          <div className="flex items-center w-full max-w-3xl">
-            <div className="grow h-14">
-              <input
+        <form
+            onSubmit={sendPrompt}
+            className="flex items-center gap-2 rounded-[22px] border bg-muted py-1.5 pr-1.5 pl-4 transition-colors focus-within:border-primary/50"
+        >
+            <input
+                id="chat-input"
                 type="text"
-                placeholder={language === 'EN' ? 'What would you like to know about Hacettepe?' : 'Hacettepe hakkında ne öğrenmek istersiniz?'}
-                autoComplete='off'
+                aria-label={label}
+                placeholder={label}
+                autoComplete="off"
                 value={inputValue}
-                onKeyDown={handleKeyDown}
                 onChange={(e) => setInputValue(e.target.value)}
-                className="w-full h-14 px-4 text-white bg-black/50 rounded-xl border-2 border-primary transition-colors duration-300 focus:border-secondary focus:outline-hidden"
-              />
-            </div>
-            <div className="shrink-0 ml-2 text-2xl">
-              <button
-              onClick={sendPrompt}
-              className={`transition-all duration-300 p-2 rounded-md focus:outline-hidden focus:ring-2 ${loading ? 'bg-black text-secondary' : 'bg-secondary text-tertiary hover:bg-secondary-red '} `}>
-                <FaArrowUp />
-              </button>
-            </div>
-            <div className="shrink-0 ml-2 text-2xl">
-              <button
-              onClick={clearChat}
-              className="bg-black text-tertiary p-2 rounded-md transition-all hover:bg-secondary duration-300 focus:outline-hidden focus:ring-2">
-                <FaTrashCan />
-              </button>
-            </div>
-          </div>
-        </div>
-      )
+                className="min-w-0 flex-1 bg-transparent py-1.5 text-base outline-none sm:text-[15px]"
+            />
+            <Button
+                type="submit"
+                size="icon"
+                disabled={loading || inputValue.trim() === ''}
+                aria-label={language === 'EN' ? 'Send' : 'Gönder'}
+                className="size-9 rounded-full"
+            >
+                <ArrowUp className="size-[18px]" strokeWidth={2.2} />
+            </Button>
+        </form>
+    )
 }
 
 export default ChatInput
