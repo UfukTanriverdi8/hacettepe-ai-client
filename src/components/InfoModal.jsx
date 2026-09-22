@@ -40,16 +40,16 @@ const InfoModal = ({ onClose, language }) => {
 
   return (
     <div 
-      className="fixed inset-0 flex justify-center items-center bg-black bg-opacity-70 z-50"
+      className="fixed inset-0 flex justify-center items-center bg-black/70 z-50"
       onClick={handleOverlayClick}
     >
-      <div className="bg-primary border-secondary rounded relative w-11/12 max-w-md">
+      <div className="bg-primary border-secondary rounded-sm relative w-11/12 max-w-md">
       <div className="flex items-center justify-between border-b-secondary border-b-2 p-2">
         <h2 className="text-xl">{language === "EN" ? infoTitleEN : infoTitleTR}</h2>
             
             <button 
             onClick={onClose} 
-            className=" bg-secondary text-white py-1 px-2 rounded">
+            className=" bg-secondary text-white py-1 px-2 rounded-sm">
             <FaRegCircleXmark />
 
             

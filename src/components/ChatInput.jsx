@@ -192,7 +192,7 @@ const ChatInput = ({chatHistory, setChatHistory, language, chatUrl}) => {
     return (
         <div className="flex justify-center items-center p-2 pt-0">
           <div className="flex items-center w-full max-w-3xl">
-            <div className="flex-grow h-14">
+            <div className="grow h-14">
               <input
                 type="text"
                 placeholder={language === 'EN' ? 'What would you like to know about Hacettepe?' : 'Hacettepe hakkında ne öğrenmek istersiniz?'}
@@ -200,20 +200,20 @@ const ChatInput = ({chatHistory, setChatHistory, language, chatUrl}) => {
                 value={inputValue}
                 onKeyDown={handleKeyDown}
                 onChange={(e) => setInputValue(e.target.value)}
-                className="w-full h-14 px-4 text-white bg-black bg-opacity-50 rounded-xl border-2 border-primary transition-colors duration-300 focus:border-secondary focus:outline-none"
+                className="w-full h-14 px-4 text-white bg-black/50 rounded-xl border-2 border-primary transition-colors duration-300 focus:border-secondary focus:outline-hidden"
               />
             </div>
-            <div className="flex-shrink-0 ml-2 text-2xl">
+            <div className="shrink-0 ml-2 text-2xl">
               <button
               onClick={sendPrompt}
-              className={`transition-all duration-300 p-2 rounded-md focus:outline-none focus:ring-2 ${loading ? 'bg-black text-secondary' : 'bg-secondary text-tertiary hover:bg-secondary-red '} `}>
+              className={`transition-all duration-300 p-2 rounded-md focus:outline-hidden focus:ring-2 ${loading ? 'bg-black text-secondary' : 'bg-secondary text-tertiary hover:bg-secondary-red '} `}>
                 <FaArrowUp />
               </button>
             </div>
-            <div className="flex-shrink-0 ml-2 text-2xl">
+            <div className="shrink-0 ml-2 text-2xl">
               <button
               onClick={clearChat}
-              className="bg-black text-tertiary p-2 rounded-md transition-all hover:bg-secondary duration-300 focus:outline-none focus:ring-2">
+              className="bg-black text-tertiary p-2 rounded-md transition-all hover:bg-secondary duration-300 focus:outline-hidden focus:ring-2">
                 <FaTrashCan />
               </button>
             </div>

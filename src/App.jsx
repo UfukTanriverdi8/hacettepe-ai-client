@@ -63,9 +63,9 @@ const App =  () => {
     }
 
     return (
-    <div className="flex flex-col h-screen bg-primary bg-opacity-85 text-tertiary">
+    <div className="flex flex-col h-screen bg-primary/85 text-tertiary">
         <Header className="fixed top-0 left-0 right-0" />
-        <div className="flex-grow overflow-auto scrollable max-h-full">
+        <div className="grow overflow-auto scrollable max-h-full">
         <ChatConversations chatHistory={chatHistory} language={language} feedbackUrl={config.feedbackUrl} />
         </div>
         <ChatInput className="fixed" language={language} chatHistory={chatHistory} setChatHistory={setChatHistory} chatUrl={config.chatUrl} />

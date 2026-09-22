@@ -8,7 +8,7 @@ No CI — there is no `.github` directory, so a PR is not checked by anything au
 
 ## Project Overview
 Single-page React chatbot application for Hacettepe University AI assistant.
-Built with Vite + React 18 + Tailwind CSS. Deployed to S3 + CloudFront by
+Built with Vite + React 18 + Tailwind CSS v4. Deployed to S3 + CloudFront by
 `HacettepeAiFrontendStack` in `../hacettepe-ai-backend`, which uploads this repo's `dist/` and
 fronts the backend Lambda on the same distribution.
 
@@ -147,13 +147,20 @@ question — follow-up questions work without sending prior turns.
   never written. Thanking the user for a rating that went nowhere is the failure to avoid here.
 
 ## Styling
-- Tailwind CSS v3 with custom colors in `tailwind.config.js`:
+- Tailwind CSS v4, configured CSS-first: no `tailwind.config.js`, and the theme is the `@theme`
+  block in `src/index.css`. It builds through `@tailwindcss/postcss`. v4 needs Safari 16.4+,
+  Chrome 111+, Firefox 128+; older browsers get broken styles, not degraded ones.
+- `--color-*: initial` clears Tailwind's default palette, so only these colors exist
+  (`bg-gray-800`, `text-white` and the like compile to nothing):
   - `primary`: `#050609` (near-black bg)
   - `secondary`: `#b72e2e` (brand red)
   - `secondary-red`: `#b5172f` (hover state red)
   - `tertiary`: `#EDF2F4` (light gray text)
   - `black`: `#1c1c1c` (card/input bg)
   - `white-text`: `#ffffff`
+- `index.css` also holds a `@layer base` block restoring v3 defaults that v4 changed
+  (placeholder color, button cursor, 1px table-cell padding) plus `--default-ring-color`, so the
+  v4 upgrade shipped with no visible change. Drop each shim once the design sets its own value.
 - Custom CSS in `index.css`: `.scrollable`, `.scroll-container`, `.custom-toast`, `.feedback-emoji-wiggle`
 - `feedback-emoji-wiggle`: one-shot damped rotation (8° → 6° → 3°) on feedback button appearance, respects `prefers-reduced-motion`
 - Responsive breakpoints: `sm:`, `md:` via Tailwind

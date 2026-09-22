@@ -49,7 +49,7 @@ const FeedbackModal = ({ onClose, question, answer, timestamp, session_id, feedb
     }
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
             <div className="bg-primary border border-secondary rounded-lg p-6 w-full max-w-md mx-4">
                 <h2 className="text-tertiary text-lg font-bold mb-4">
                     {language === 'TR' ? 'Geri Bildirim' : 'Feedback'}
@@ -97,7 +97,7 @@ const FeedbackModal = ({ onClose, question, answer, timestamp, session_id, feedb
                         onChange={e => setComment(e.target.value)}
                         placeholder={language === 'TR' ? 'Yorumunuz (isteğe bağlı)' : 'Your comment (optional)'}
                         rows={3}
-                        className="w-full px-3 py-2 bg-black text-tertiary rounded-lg border border-primary focus:border-secondary focus:outline-none resize-none text-sm"
+                        className="w-full px-3 py-2 bg-black text-tertiary rounded-lg border border-primary focus:border-secondary focus:outline-hidden resize-none text-sm"
                     />
                 </div>
 

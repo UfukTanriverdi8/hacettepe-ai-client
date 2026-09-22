@@ -53,9 +53,9 @@ const ChatMessage = ({ sender, message, isPlaceholder, skipTypewriter, status, t
     const showFeedbackButton = sender === 'AI' && !isPlaceholder && isTypingComplete && timestamp && !feedbackSubmitted
 
     return (
-        <div className="w-full max-w-3xl p-2 mb-2 flex items-start text-tertiary bg-black bg-opacity-50 rounded-lg">
-            {sender === 'AI' && <GiDeerHead className={`flex-shrink-0 w-8 mr-2 mt-1 text-2xl ${isPlaceholder ? 'text-[#9ca3af]' : 'text-secondary'}`} />}
-            {sender === 'Human' && <FaUser className="flex-shrink-0 w-8 mr-2 mt-1 text-2xl" />}
+        <div className="w-full max-w-3xl p-2 mb-2 flex items-start text-tertiary bg-black/50 rounded-lg">
+            {sender === 'AI' && <GiDeerHead className={`shrink-0 w-8 mr-2 mt-1 text-2xl ${isPlaceholder ? 'text-[#9ca3af]' : 'text-secondary'}`} />}
+            {sender === 'Human' && <FaUser className="shrink-0 w-8 mr-2 mt-1 text-2xl" />}
             <div className="flex flex-col flex-1">
                 {sender === 'AI' ? (
                     isPlaceholder ? (
