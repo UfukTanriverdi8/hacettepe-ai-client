@@ -19,7 +19,7 @@ fronts the backend Lambda on the same distribution.
 App.jsx                         # Root: global state, layout
 ├── LoadingScreen.jsx            # Shown while /config.json is loading
 ├── ConfigErrorScreen.jsx        # Shown if /config.json fails to load (manual retry)
-├── Header.jsx                  # Branding, language toggle
+├── Header.jsx                  # Branding
 ├── ChatConversations.jsx       # Scrollable message list container
 │   └── ChatMessage.jsx         # Message bubble; picks one of three text-reveal mechanisms
 │       └── FeedbackModal.jsx   # 5-star feedback modal (shown per AI message)
@@ -40,7 +40,9 @@ No external state library — all prop-drilled from `App.jsx` with `localStorage
 
 **App.jsx global state:**
 - `chatHistory` — array of message objects (persisted to localStorage)
-- `language` — `'EN' | 'TR'` (persisted)
+- `language` — pinned to `'TR'`; no toggle. Components keep their EN strings for a future
+  settings page, and App deletes the old `language` localStorage key on mount so an earlier EN
+  choice does not stick
 - `config` — fetched once from `/config.json` via `loadConfig()` (`src/config.js`); gates rendering behind `LoadingScreen`/`ConfigErrorScreen` until resolved
 - `openModal` — boolean
 
@@ -121,8 +123,8 @@ before the next status event lands.
    never leave it cycling
 
 **Session management:** `session_id` lives in `localStorage` under `session_id`. Cleared on
-language switch and on "Clear chat". History is replayed server-side from DynamoDB, so the
-client sends only the new question — follow-up questions work without sending prior turns.
+"Clear chat". History is replayed server-side from DynamoDB, so the client sends only the new
+question — follow-up questions work without sending prior turns.
 
 **Constraints:** Max 30 messages (15 exchanges), below the server's 25-exchange replay window.
 
@@ -264,4 +266,3 @@ building, or two different builds report the same version. The hashed asset file
 - `GiDeerHead` icon (react-icons/gi) used as AI avatar; `FaStar`/`FaStarHalfStroke` for feedback rating
 - `dangerouslySetInnerHTML` used only in `InfoModal.jsx` for controlled bilingual HTML content
 - No routing — single view SPA
-- Language switch clears chat history and `session_id` (with confirmation dialog if history exists)

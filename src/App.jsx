@@ -7,7 +7,7 @@ import LoadingScreen from './components/LoadingScreen'
 import ConfigErrorScreen from './components/ConfigErrorScreen'
 import { loadConfig } from './config'
 import { useState, useEffect } from 'react'
-import { ToastContainer, toast } from 'react-toastify';
+import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.min.css';
 
 const App =  () => {
@@ -32,34 +32,12 @@ const App =  () => {
         localStorage.setItem('chatHistory', JSON.stringify(chatHistory))
     }, [chatHistory])
 
-    const [language, setLanguage] = useState(() => {
-        // Retrieve language from localStorage or default to 'TR'
-        const savedLanguage = localStorage.getItem('language')
-        return savedLanguage ? savedLanguage : 'TR'
-      })
-    
-      useEffect(() => {
-        // Store language preference in localStorage when it changes
-        localStorage.setItem('language', language)
-      }, [language])
-
-    const enLangChange = "Language changed to English! Chat will be in English too!"
-    const trLangChange = "Dil Türkçeye değiştirildi! Cevaplar Türkçe olacak."
-    const langChangeInfoMsgEN = "Are you sure you want to change the language? This action will clear your chat history."
-    const langChangeInfoMsgTR = "Dili değiştirmek istediğinizden emin misiniz? Bu eylem sohbet geçmişinizi silecek."
-    const handleLanguageChange = () => {
-        const langChangeInfoMsg = language === 'EN' ? langChangeInfoMsgEN : langChangeInfoMsgTR
-        if(chatHistory.length > 0){
-            if(confirm(langChangeInfoMsg) == true){
-                changeLanguage()
-            } else {
-                return
-            }
-        }else{
-            changeLanguage()
-        }
-
-      }
+    // Pinned while there is no way to change it. The EN strings stay in the components for a
+    // future settings page; the stored key is dropped so an earlier EN choice does not stick.
+    const language = 'TR'
+    useEffect(() => {
+        localStorage.removeItem('language')
+    }, [])
 
     const [config, setConfig] = useState(null)
     const [configError, setConfigError] = useState(null)
@@ -76,26 +54,6 @@ const App =  () => {
 
     const retryConfig = () => setConfigRetryToken(prev => prev + 1)
 
-      const changeLanguage = () => {
-        setChatHistory([]) // Clear the chat history
-        localStorage.removeItem('session_id') // Clear session_id
-        const newLang = language === 'EN' ? 'TR' : 'EN'
-            setLanguage(newLang)
-    
-            toast.dismiss()
-            // Show a toast notification
-            toast.success(`${newLang === 'EN' ? enLangChange : trLangChange}`, {
-              position: "top-left",
-              autoClose: 3000,  // auto-close the toast after 3 seconds
-              hideProgressBar: false,
-              closeOnClick: true,
-              draggable: true,
-              pauseOnHover: false,
-              progress: undefined,
-              className: 'custom-toast'
-            })
-        }
-      
     if (configError) {
         return <ConfigErrorScreen onRetry={retryConfig} />
     }
@@ -106,7 +64,7 @@ const App =  () => {
 
     return (
     <div className="flex flex-col h-screen bg-primary bg-opacity-85 text-tertiary">
-        <Header className="fixed top-0 left-0 right-0" language={language} handleLanguageChange={handleLanguageChange}/>
+        <Header className="fixed top-0 left-0 right-0" />
         <div className="flex-grow overflow-auto scrollable max-h-full">
         <ChatConversations chatHistory={chatHistory} language={language} feedbackUrl={config.feedbackUrl} />
         </div>
