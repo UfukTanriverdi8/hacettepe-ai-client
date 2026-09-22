@@ -18,7 +18,10 @@
     "strict": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
-    "noFallthroughCasesInSwitch": true
+    "noFallthroughCasesInSwitch": true,
+    // `@/` is src/, the convention shadcn's generated components import through. Mirrored in
+    // vite.config.js's resolve.alias, which is what the build actually uses.
+    "paths": { "@/*": ["./src/*"] }
   },
   "include": ["src"]
 }

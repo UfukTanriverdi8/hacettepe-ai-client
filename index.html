@@ -1,10 +1,23 @@
 <!doctype html>
-<html lang="en">
+<html lang="tr">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/x-icon" href="/deer.ico" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#fbfafa" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#161314" media="(prefers-color-scheme: dark)" />
     <title>Hacettepe AI</title>
+    <!-- Applies the saved theme and language before the bundle loads, so a dark-mode visitor
+         never sees a white first paint. Mirrors src/hooks/useSettings.ts, which takes over. -->
+    <script>
+      try {
+        var t = localStorage.getItem('theme')
+        if (t === 'dark' || (t !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches)) {
+          document.documentElement.classList.add('dark')
+        }
+        if (localStorage.getItem('ui-language') === 'EN') document.documentElement.lang = 'en'
+      } catch (e) {}
+    </script>
   </head>
   <body>
     <div id="root"></div>

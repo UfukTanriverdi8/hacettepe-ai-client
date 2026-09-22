@@ -1,24 +1,52 @@
-import Typewriter from "typewriter-effect"
+import { Info, Plus } from 'lucide-react'
+import type { ReactNode } from 'react'
+import { Button } from '@/components/ui/button'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import SettingsMenu from './SettingsMenu'
+import type { Language, ThemePreference } from '../types'
 
-const Header = () => {
+interface HeaderProps {
+    language: Language
+    setLanguage: (language: Language) => void
+    theme: ThemePreference
+    setTheme: (theme: ThemePreference) => void
+    hasChat: boolean
+    onNewChat: () => void
+    onInfoClick: () => void
+}
+
+const IconButton = ({ label, onClick, children }: { label: string; onClick: () => void; children: ReactNode }) => (
+    <Tooltip>
+        <TooltipTrigger asChild>
+            <Button variant="ghost" size="icon" aria-label={label} onClick={onClick} className="size-10 text-muted-foreground">
+                {children}
+            </Button>
+        </TooltipTrigger>
+        <TooltipContent>{label}</TooltipContent>
+    </Tooltip>
+)
+
+const Header = ({ language, setLanguage, theme, setTheme, hasChat, onNewChat, onInfoClick }: HeaderProps) => {
+    const tr = language === 'TR'
+
     return (
-        <div className="flex justify-center items-center py-1 border-b-2 border-secondary">
-        <h1 className="text-center text-black-text text-2xl sm:text-3xl md:text-4xl font-mono">
-            <Typewriter
-                onInit={(typewriter) => {
-                    typewriter.typeString('hacettepe')
-                    .pauseFor(300)
-                    .typeString('<strong style="color: #b72e2e;"> ai</strong>')
-                    .start()
-                }}
-                options={{
-                    delay: 150,
-                    deleteSpeed: "natural",
-                    cursor: "_",
-                }}
-            />
-        </h1>
-        </div>
+        <header className="flex shrink-0 items-center justify-between py-2 pr-2.5 pl-4 sm:pr-3.5 sm:pl-5">
+            <h1 className="text-xl font-semibold tracking-tight">
+                hacettepe <span className="text-primary">ai</span>
+            </h1>
+            <div className="flex items-center gap-0.5">
+                {/* Nothing to clear on an empty chat, so the button only appears once there is. */}
+                {hasChat && (
+                    <IconButton label={tr ? 'Yeni sohbet' : 'New chat'} onClick={onNewChat}>
+                        <Plus className="size-5" />
+                    </IconButton>
+                )}
+                <SettingsMenu theme={theme} setTheme={setTheme} language={language} setLanguage={setLanguage} />
+                <IconButton label={tr ? 'Hakkında' : 'About'} onClick={onInfoClick}>
+                    <Info className="size-5" />
+                </IconButton>
+            </div>
+        </header>
     )
 }
 

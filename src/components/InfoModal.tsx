@@ -1,69 +1,54 @@
-import { useState, useEffect } from "react";
-import { FaRegCircleXmark } from "react-icons/fa6";
-import type { MouseEvent } from "react";
+import { FaGithub } from "react-icons/fa6";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import type { Language } from "../types";
 
-const InfoModal = ({ onClose, language }: { onClose: () => void; language: Language }) => {
-    const [displayedText, setDisplayedText] = useState("") // State to hold the currently displayed text
+interface InfoModalProps {
+    open: boolean
+    onClose: () => void
+    language: Language
+}
+
+const InfoModal = ({ open, onClose, language }: InfoModalProps) => {
     const infoTitleTR = "Hakkında"
     const infoTitleEN = "About"
-    const infoContentTR = 'Hacettepe AI, Hacettepe Üniversitesi öğrencileri için özel bir yapay zeka asistanıdır.<br />' +
-    'Retrieval-Augmented Generation (RAG) mimarisini ve Gemini modelini kullanarak hızlı ve doğru yanıtlar sağlar. ' +
-    'Üniversitenin web sitesinden alınan verilerle geliştirilen bu uygulama hızlıca üniversite ile alakalı soruları cevaplayabilir.<br />' +
-    'Daha fazlası için LinkedIn ve GitHub üzerinden benimle bağlantı kurabilirsiniz.<br />' +
-    'Hacettepe AI’yi kullandığınız için teşekkür ederiz!'
-    const infoContentEN = 'Hacettepe AI is a dedicated AI assistant for Hacettepe University students.<br />' +
-    'It leverages Retrieval-Augmented Generation (RAG) architecture and the Gemini model to deliver fast and accurate responses. ' +
-    'Developed using scraped data from the university’s website, it ensures reliable information at your fingertips. <br /> ' +
-    'For more updates, connect with me on LinkedIn and GitHub. If you have any questions or feedback, feel free to reach out.<br />' +
-    'Thank you for using Hacettepe AI!'
-
-
-    const fullText = language === "EN" ? infoContentEN : infoContentTR
-    useEffect(() => {
-        let currentIndex = -1
-        const interval = setInterval(() => {
-            currentIndex++
-        setDisplayedText((prev) => prev + fullText[currentIndex])
-        
-        if (currentIndex >= fullText.length-1) {
-            clearInterval(interval) // Clear the interval when the full text has been displayed
-        }
-        }, 5) // Adjust the interval time to control the speed of the typing effect
-
-        return () => clearInterval(interval) // Cleanup the interval on component unmount
-    }, [fullText])
-
-    const handleOverlayClick = (e: MouseEvent<HTMLDivElement>) => {
-        if (e.target === e.currentTarget) {
-        onClose()
-        }
-    };
+    // One entry per paragraph.
+    const infoContentTR = [
+        'Hacettepe AI, Hacettepe Üniversitesi öğrencileri için bir yapay zeka asistanıdır.',
+        'Sorularınızı yanıtlarken Hacettepe kaynaklarında arama yapabilir ve güncel web sayfalarını çekebilir.',
+        'Soru ve önerileriniz için GitHub üzerinden ulaşabilirsiniz.',
+        'Hacettepe AI’yi kullandığınız için teşekkür ederiz!',
+    ]
+    const infoContentEN = [
+        'Hacettepe AI is an AI assistant for Hacettepe University students.',
+        'To answer your questions, it can search Hacettepe resources and fetch live web pages.',
+        'For questions or suggestions, reach out on GitHub.',
+        'Thank you for using Hacettepe AI!',
+    ]
+    const tr = language === "TR"
 
   return (
-    <div 
-      className="fixed inset-0 flex justify-center items-center bg-black/70 z-50"
-      onClick={handleOverlayClick}
-    >
-      <div className="bg-primary border-secondary rounded-sm relative w-11/12 max-w-md">
-      <div className="flex items-center justify-between border-b-secondary border-b-2 p-2">
-        <h2 className="text-xl">{language === "EN" ? infoTitleEN : infoTitleTR}</h2>
-            
-            <button 
-            onClick={onClose} 
-            className=" bg-secondary text-white py-1 px-2 rounded-sm">
-            <FaRegCircleXmark />
-
-            
-            </button>
-      </div>
-        <div className="p-2">
-            <p dangerouslySetInnerHTML={{__html: displayedText}}></p>
-            {/* Outside the typewriter, so it renders immediately rather than being typed out */}
-            <p className="text-right text-xs text-[#9ca3af] mt-3">v{__APP_VERSION__}</p>
-      </div>
-    </div>
-    </div>
+    <Dialog open={open} onOpenChange={(isOpen) => { if (!isOpen) onClose() }}>
+      <DialogContent closeLabel={tr ? "Kapat" : "Close"} className="gap-4 p-5 sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>{tr ? infoTitleTR : infoTitleEN}</DialogTitle>
+        </DialogHeader>
+        <div className="flex flex-col gap-2.5 text-[15px] leading-relaxed text-muted-foreground">
+          {(tr ? infoContentTR : infoContentEN).map(paragraph => <p key={paragraph}>{paragraph}</p>)}
+        </div>
+        <div className="flex items-center justify-between border-t pt-4 text-xs text-muted-foreground">
+          <a
+            href="https://github.com/UfukTanriverdi8/hacettepe-ai-client"
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-1.5 rounded-sm transition-colors hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+          >
+            <FaGithub className="size-4" />
+            GitHub
+          </a>
+          <span>Hacettepe AI © 2026 · v{__APP_VERSION__}</span>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 };
 
