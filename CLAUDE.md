@@ -21,7 +21,7 @@ App.jsx                         # Root: global state, layout
 ├── ConfigErrorScreen.jsx        # Shown if /config.json fails to load (manual retry)
 ├── Header.jsx                  # Branding, language toggle
 ├── ChatConversations.jsx       # Scrollable message list container
-│   └── ChatMessage.jsx         # Individual message bubble + typewriter effect
+│   └── ChatMessage.jsx         # Message bubble; picks one of three text-reveal mechanisms
 │       └── FeedbackModal.jsx   # 5-star feedback modal (shown per AI message)
 ├── ChatInput.jsx               # Input field, send/clear, API calls
 ├── Footer.jsx                  # Social links, info button
@@ -29,6 +29,11 @@ App.jsx                         # Root: global state, layout
 ```
 
 `Chatbot.jsx` is a legacy/unused component.
+
+Hooks in `src/hooks/`:
+- `useSmoothedText.js` — reveals a streamed answer at a steady rate regardless of how unevenly
+  the network delivers it. See the API Integration section.
+- `useCyclingText.js` — the typewriter loop behind the placeholder and `LoadingScreen.jsx`.
 
 ## State Management
 No external state library — all prop-drilled from `App.jsx` with `localStorage` persistence.
@@ -45,7 +50,8 @@ No external state library — all prop-drilled from `App.jsx` with `localStorage
   sender: 'Human' | 'AI',
   message: string,
   isPlaceholder?: boolean,   // true until the first `token` event arrives
-  skipTypewriter?: boolean,  // skip animation for history messages and streamed responses
+  skipTypewriter?: boolean,  // set on everything except the greeting; ChatMessage reads it as
+                             // "do not run the fixed-rate typewriter"
   id?: number,               // used to patch the placeholder as stream events arrive
   status?: string,           // localized status text, shown while isPlaceholder is true
   timestamp?: string,        // DynamoDB sort key from the `done` event — gates the feedback button
@@ -83,9 +89,17 @@ trailing fragment, because chunk boundaries land wherever TCP puts them rather t
 `decoder.decode(value, { stream: true })` does the same for an incomplete UTF-8 sequence, which
 Turkish text hits routinely.
 
-`token` appends rather than assigns. The backend currently emits the whole answer as one event
-(`app/agent/loop.py`), so the two look identical today — appending makes the eventual
-`converse_stream` switch a backend-only change.
+`token` appends rather than assigns: the backend emits one event per text delta, a few hundred
+per answer (`app/agent/loop.py`).
+
+Those events do not reach the browser evenly. The backend's guardrail runs in
+`streamProcessingMode: "sync"`, which re-bunches them into 5–11 network chunks — measured at
+53–56 distinct arrival buckets without the guardrail against 5–11 with it (2026-09-22). Painting
+each chunk on arrival is what made answers appear in lumps with no typing motion.
+`useSmoothedText` absorbs that: it keeps the text the server has sent apart from the text on
+screen and closes the gap on a 33ms timer, so chunk size is invisible to the reader. Nothing in
+this file needs to change if the backend later switches the guardrail to `async` and the chunk
+count jumps back to ~55.
 
 **Call flow:**
 1. Add human message to history
@@ -180,9 +194,14 @@ cd ../hacettepe-ai-backend && uv run uvicorn app.main:app --reload
 Vite's proxy does not buffer, so streaming is visible in dev.
 
 ## Testing
-No test runner (no `test` script, no vitest/jest). What worked for the NDJSON migration:
-- Pure logic → a standalone `node script.mjs`; the stream reader was proven against 1-byte
-  chunks, which splits every line and every multi-byte UTF-8 character.
+No test runner (no vitest/jest). Pure logic is checked by standalone Node scripts instead,
+which is enough because the pieces worth checking have no DOM in them:
+- `npm run check:smoothing` → `scripts/check-smoothing.mjs`, driving `useSmoothedText`'s
+  `advance()` over simulated chunky arrivals. It exists because the reveal math fails quietly:
+  a step that never quite reaches the goal drops the last characters of every answer, which is
+  easy to miss by eye.
+- The NDJSON stream reader was proven the same way, against 1-byte chunks — which splits every
+  line and every multi-byte UTF-8 character.
 - Wire behavior → a mock NDJSON server on `:8000` + `curl -sN | while read` with per-line
   timestamps. Exercises the dev proxy and proves streaming is unbuffered, with no AWS.
 
@@ -212,14 +231,24 @@ building, or two different builds report the same version. The hashed asset file
 - All components are functional with hooks
 - Semicolons are mostly omitted; `ChatInput.jsx` and `ChatConversations.jsx` are mixed.
   Match the file you are editing — ESLint enforces neither.
-- Typewriter animation:
-  - **Placeholder**: cycles through `LOADING_MESSAGES` (Turkish strings) at 45ms/char, 220ms for dots, 700ms pause between messages
-    — logic lives in `src/hooks/useCyclingText.js` (reusable; also used by `LoadingScreen.jsx`).
-    Covers roughly the first 3.5s, until the first `status` event replaces it with what the
-    server is actually doing
-  - **Real AI responses**: instant display (`skipTypewriter: true` set by `ChatInput`)
-  - **Greeting / initial messages** (no `skipTypewriter`): 25ms/char one-shot typewriter
-  - **History on load**: instant display (`skipTypewriter: true` set by `App.jsx`)
+- Three ways text reaches the screen, deliberately three different mechanisms:
+  - **Greeting / initial messages** (no `skipTypewriter`): 25ms/char one-shot typewriter, in
+    `ChatMessage.jsx` itself. It is the one message whose full text exists when it mounts, which
+    is why a fixed rate suits it and why it is the only case still handled there.
+  - **Streamed answers**: `src/hooks/useSmoothedText.js`, revealing toward whatever the server
+    has sent so far. Do **not** try to serve this with the greeting's typewriter — that effect
+    restarts from character zero whenever `message` changes, so across a few hundred token
+    events it would stutter from the start forever instead of advancing.
+  - **History, human turns, error messages**: instant. `useSmoothedText` distinguishes these
+    from a streamed answer by whether the text was already there when the component mounted, so
+    no flag is threaded through `ChatInput` or persisted to `localStorage` for it.
+- **Placeholder**: `LOADING_MESSAGES` cycled by `src/hooks/useCyclingText.js` (reusable; also
+  used by `LoadingScreen.jsx`) at 45ms/char, 220ms for dots, 700ms between messages. It holds
+  only `'🤔 Düşünüyor...'`, because it runs on a timer with no connection to the backend and can
+  only honestly claim the question was sent. It previously also cycled
+  `'🦌 Hacettepe kaynakları taranıyor...'` and `'🧑‍🍳 Cevap üretiliyor...'`, which named states the
+  server reports for real — so it regularly announced "generating the answer" while the model
+  was still searching. Covers roughly the first 5s, until the first `status` event takes over.
 - `GiDeerHead` icon (react-icons/gi) used as AI avatar; `FaStar`/`FaStarHalfStroke` for feedback rating
 - `dangerouslySetInnerHTML` used only in `InfoModal.jsx` for controlled bilingual HTML content
 - No routing — single view SPA

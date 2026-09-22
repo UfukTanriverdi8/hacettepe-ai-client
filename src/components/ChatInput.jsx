@@ -2,8 +2,8 @@ import { FaArrowUp, FaTrashCan } from "react-icons/fa6";
 import { useState} from 'react';
 
 // The backend's status strings are English and defined in app/agent/tool_specs.py
-// (STATUS_MESSAGES). An unmapped status falls through to the raw string, so a tool added
-// server-side shows something rather than nothing until this map catches up.
+// (STATUS_MESSAGES and POST_TOOL_STATUS). An unmapped status falls through to the raw string,
+// so a tool added server-side shows something rather than nothing until this map catches up.
 const STATUS_TEXT = {
     'searching the knowledge base...': {
         TR: '🦌 Hacettepe kaynakları taranıyor...',
@@ -12,6 +12,13 @@ const STATUS_TEXT = {
     'fetching a live page...': {
         TR: '🌐 Güncel sayfa getiriliyor...',
         EN: '🌐 Fetching a live page...',
+    },
+    // Sent once a tool's results are back, covering the stretch where the model is reasoning
+    // over them and nothing is on screen yet. Without it the tool's own status stays up for
+    // ~8s, claiming a search is still running after it finished.
+    'going through the results...': {
+        TR: '📖 Sonuçlar inceleniyor...',
+        EN: '📖 Going through the results...',
     },
 }
 
@@ -86,8 +93,9 @@ const ChatInput = ({chatHistory, setChatHistory, language, chatUrl}) => {
                     patchAiMessage({ status: localizeStatus(event.message, language) })
                     break
                 case 'token':
-                    // Appended, not assigned: the backend sends the whole answer as one event
-                    // today, but issue #8 splits it into pieces and this already handles that.
+                    // Appended, not assigned: one event per text delta, a few hundred per
+                    // answer. ChatMessage smooths the arrival rate, so the lumpiness the
+                    // network imposes on these does not reach the screen.
                     answer += event.text
                     patchAiMessage({ message: answer, isPlaceholder: false, skipTypewriter: true, status: null })
                     break

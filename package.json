@@ -1,13 +1,14 @@
 {
   "name": "hacettepe-ai-client",
   "private": true,
-  "version": "2.0.0",
+  "version": "2.1.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "check:smoothing": "node scripts/check-smoothing.mjs"
   },
   "dependencies": {
     "react": "^18.3.1",
