@@ -182,9 +182,13 @@ from `lucide-react`, class merging from `cn` (shadcn's own package).
 shadcn now generates for React 19, where `ref` is an ordinary prop. On React 18 a plain function
 component drops it, so a generated component used as a Radix `asChild` trigger never passes
 its DOM node up, and the popover or tooltip it opens stays unpositioned at
-`translate(0, -200%)`, off-screen, with no error. `ui/button.tsx` is wrapped in
-`React.forwardRef` for this; do the same to any other generated component that ends up as a
-trigger, and re-apply it after `shadcn add --overwrite`.
+`translate(0, -200%)`, off-screen. A wrapper that Radix clones a ref onto fails the same way,
+with a dev-only "Function components cannot be given refs" warning: `DialogOverlay` inside the
+portal, or `PopoverTrigger` nested in `TooltipTrigger asChild`. Wrapped in `React.forwardRef`
+so far: `Button`, `PopoverTrigger`, `TooltipTrigger`, `DialogTrigger`, `DialogClose`,
+`DialogOverlay`. Do the same to any new wrapper in one of those positions, re-apply after
+`shadcn add --overwrite`, and check the dev server's console, since production builds are
+silent about it.
 
 `react-refresh/only-export-components` is off for `src/components/ui/**`, which exports
 variant helpers beside components the way upstream does.
