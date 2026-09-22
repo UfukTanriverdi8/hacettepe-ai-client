@@ -195,7 +195,7 @@ npm run preview  # preview production build
 npm run lint     # ESLint
 ```
 
-`npm run lint` **fails at baseline** — 39 problems on a clean tree, almost all `react/prop-types`
+`npm run lint` **fails at baseline** — 38 problems on a clean tree, almost all `react/prop-types`
 plus a few unused imports. Compare counts before and after a change rather than expecting zero.
 
 Full-stack dev needs the backend running alongside:
