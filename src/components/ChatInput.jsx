@@ -78,6 +78,7 @@ const ChatInput = ({chatHistory, setChatHistory, language, chatUrl}) => {
 
         let activeSessionId = sessionId
         let answer = ''
+        let lastStatus = null
         let errorShown = false
 
         const handleEvent = (event) => {
@@ -90,7 +91,10 @@ const ChatInput = ({chatHistory, setChatHistory, language, chatUrl}) => {
                     localStorage.setItem('session_id', event.session_id)
                     break
                 case 'status':
-                    patchAiMessage({ status: localizeStatus(event.message, language) })
+                    // Kept as well as rendered, so a discard can put the bubble back into the
+                    // state it was in before the retracted text overwrote it.
+                    lastStatus = localizeStatus(event.message, language)
+                    patchAiMessage({ status: lastStatus })
                     break
                 case 'token':
                     // Appended, not assigned: one event per text delta, a few hundred per
@@ -98,6 +102,16 @@ const ChatInput = ({chatHistory, setChatHistory, language, chatUrl}) => {
                     // network imposes on these does not reach the screen.
                     answer += event.text
                     patchAiMessage({ message: answer, isPlaceholder: false, skipTypewriter: true, status: null })
+                    break
+                case 'discard':
+                    // Everything streamed so far was the model narrating a tool call it was
+                    // about to make, not answer text (app/streaming.py's discard()). Dropping
+                    // it here is what keeps 'let me check the live page' from being glued to
+                    // the front of the real answer. Back to isPlaceholder so the status line
+                    // returns, carrying whatever the server last reported until the tool's own
+                    // status arrives a moment later.
+                    answer = ''
+                    patchAiMessage({ message: '', isPlaceholder: true, status: lastStatus })
                     break
                 case 'done':
                     // timestamp is the DynamoDB sort key this answer is stored under, and is
