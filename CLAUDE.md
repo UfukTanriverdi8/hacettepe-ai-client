@@ -200,6 +200,9 @@ last in that file and apply to `src` only: placed first, the base `no-undef` and
 `vite.config.js`, `eslint.config.js` and the scripts stay plain JavaScript; `tsconfig.json`
 includes only `src`.
 
+`npm install` warns that esbuild's postinstall is not approved. Harmless: the build works without
+it. Leave it unapproved unless a build actually fails on esbuild.
+
 Full-stack dev needs the backend running alongside:
 ```bash
 cd ../hacettepe-ai-backend && uv run uvicorn app.main:app --reload
@@ -213,13 +216,17 @@ which is enough because the pieces worth checking have no DOM in them:
 - `npm run check:smoothing` → `scripts/check-smoothing.mjs`, driving `useSmoothedText`'s
   `advance()` over simulated chunky arrivals. It imports `useSmoothedText.ts` directly, relying
   on Node's built-in type stripping (Node 22.18+), which is why `tsconfig.json` sets
-  `erasableSyntaxOnly`: an `enum` in that file would break the script, not the build. It exists because the reveal math fails quietly:
-  a step that never quite reaches the goal drops the last characters of every answer, which is
-  easy to miss by eye.
+  `erasableSyntaxOnly`: an `enum` in that file would break the script, not the build. It exists
+  because the reveal math fails quietly: a step that never quite reaches the goal drops the last
+  characters of every answer, which is easy to miss by eye.
 - The NDJSON stream reader was proven the same way, against 1-byte chunks — which splits every
   line and every multi-byte UTF-8 character.
 - Wire behavior → a mock NDJSON server on `:8000` + `curl -sN | while read` with per-line
   timestamps. Exercises the dev proxy and proves streaming is unbuffered, with no AWS.
+- Visual parity → `git worktree add` the previous commit, `npm ci && npm run build` there, serve
+  both builds with `vite preview` on two ports, and screenshot them with Playwright. `preview`
+  inherits `server.proxy`, so the same `:8000` mock drives a full streamed answer in both.
+  Wait ~600ms after focusing a button: `transition-all` fades the focus ring in.
 
 ## Deploy
 Runs from `../hacettepe-ai-backend/infra`, which reads this repo's `dist/` — `npm run build` first.
@@ -238,6 +245,11 @@ committed can diverge silently.
 time via Vite `define` as `__APP_VERSION__`, and rendered in `InfoModal.tsx`. Bump it *before*
 building, or two different builds report the same version. The hashed asset filename in
 `index.html` is the fallback identifier and is always exact.
+
+**Releases.** Bump the version in its own `chore:` commit on `dev` before opening the PR. Tags
+(`vX.Y.Z`) go on the merge commit GitHub creates on `main`, which `dev` never contains, so
+`git describe` on `dev` finds no tag. Read the current version from `package.json` or
+`git tag --sort=-creatordate`.
 
 ## Claude Code Hooks (`.claude/settings.json`)
 - Any Edit/Write to `.ts`/`.tsx`/`.js`/`.jsx` auto-runs `eslint --fix` afterward — no need to manually re-lint a file you just edited.
@@ -268,3 +280,6 @@ building, or two different builds report the same version. The hashed asset file
 - `GiDeerHead` icon (react-icons/gi) used as AI avatar; `FaStar`/`FaStarHalfStroke` for feedback rating
 - `dangerouslySetInnerHTML` used only in `InfoModal.tsx` for controlled bilingual HTML content
 - No routing — single view SPA
+- The shell is zsh: an unquoted `$files` is one argument, not a list, and `$PIPESTATUS` does not
+  exist. Loop explicitly or pass paths to `git restore --source=HEAD -- <paths>`; never pair
+  a deleting step with a restoring step that relies on word-splitting.
