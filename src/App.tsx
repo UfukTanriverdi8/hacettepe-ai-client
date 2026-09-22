@@ -111,8 +111,8 @@ const App =  () => {
                 />
                 <p className="px-2 pt-2 pb-3 text-center text-xs text-muted-foreground">
                     {tr
-                        ? 'Hacettepe AI hata yapabilir. Önemli bilgileri resmi duyurulardan doğrulayın.'
-                        : 'Hacettepe AI can make mistakes. Check important details against official announcements.'}
+                        ? 'hacettepe ai hata yapabilir, önemli bilgileri resmi kaynaklardan doğrulayın'
+                        : 'hacettepe ai can make mistakes, check important details against official resources'}
                 </p>
             </div>
             <div aria-hidden="true" style={grow(hasChat ? 0 : 1.4)} className="basis-0 transition-[flex-grow] duration-500 ease-out motion-reduce:transition-none" />

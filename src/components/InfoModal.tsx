@@ -13,17 +13,15 @@ const InfoModal = ({ open, onClose, language }: InfoModalProps) => {
     const infoTitleEN = "About"
     // One entry per paragraph.
     const infoContentTR = [
-        'Hacettepe AI, Hacettepe Üniversitesi öğrencileri için özel bir yapay zeka asistanıdır.',
-        'Retrieval-Augmented Generation (RAG) mimarisini ve Gemini modelini kullanarak hızlı ve doğru yanıtlar sağlar. ' +
-        'Üniversitenin web sitesinden alınan verilerle geliştirilen bu uygulama hızlıca üniversite ile alakalı soruları cevaplayabilir.',
-        'Daha fazlası için LinkedIn ve GitHub üzerinden benimle bağlantı kurabilirsiniz.',
+        'Hacettepe AI, Hacettepe Üniversitesi öğrencileri için bir yapay zeka asistanıdır.',
+        'Sorularınızı yanıtlarken Hacettepe kaynaklarında arama yapabilir ve güncel web sayfalarını getirebilir.',
+        'Soru ve önerileriniz için GitHub üzerinden ulaşabilirsiniz.',
         'Hacettepe AI’yi kullandığınız için teşekkür ederiz!',
     ]
     const infoContentEN = [
-        'Hacettepe AI is a dedicated AI assistant for Hacettepe University students.',
-        'It leverages Retrieval-Augmented Generation (RAG) architecture and the Gemini model to deliver fast and accurate responses. ' +
-        'Developed using scraped data from the university’s website, it ensures reliable information at your fingertips.',
-        'For more updates, connect with me on LinkedIn and GitHub. If you have any questions or feedback, feel free to reach out.',
+        'Hacettepe AI is an AI assistant for Hacettepe University students.',
+        'To answer your questions, it can search Hacettepe resources and fetch live web pages.',
+        'For questions or suggestions, reach out on GitHub.',
         'Thank you for using Hacettepe AI!',
     ]
     const tr = language === "TR"
@@ -39,7 +37,7 @@ const InfoModal = ({ open, onClose, language }: InfoModalProps) => {
         </div>
         <div className="flex items-center justify-between border-t pt-4 text-xs text-muted-foreground">
           <a
-            href="https://github.com/UfukTanriverdi8/HacettepeAI-client"
+            href="https://github.com/UfukTanriverdi8/hacettepe-ai-client"
             target="_blank"
             rel="noreferrer"
             className="inline-flex items-center gap-1.5 rounded-sm transition-colors hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
