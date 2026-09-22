@@ -49,7 +49,8 @@ No external state library — all prop-drilled from `App.jsx` with `localStorage
 {
   sender: 'Human' | 'AI',
   message: string,
-  isPlaceholder?: boolean,   // true until the first `token` event arrives
+  isPlaceholder?: boolean,   // true until the first `token` event, and true again after a
+                             // `discard` retracts the tokens that already arrived
   skipTypewriter?: boolean,  // set on everything except the greeting; ChatMessage reads it as
                              // "do not run the fixed-rate typewriter"
   id?: number,               // used to patch the placeholder as stream events arrive
@@ -81,6 +82,7 @@ Response: **NDJSON**, one JSON object per line, `Content-Type: application/x-ndj
 | `session` | `session_id` | store in state + `localStorage`; sent first, before any model work |
 | `status` | `message` (English) | localize via `STATUS_TEXT`, show in place of the cycling placeholder |
 | `token` | `text` | **append** to the accumulated answer, clear `isPlaceholder` |
+| `discard` | — | drop every token so far; back to `isPlaceholder` with the last status |
 | `done` | `timestamp?` | store as the feedback key; absent when the server's write failed |
 | `error` | `message` | show it in place of the placeholder; do not throw |
 
@@ -92,14 +94,24 @@ Turkish text hits routinely.
 `token` appends rather than assigns: the backend emits one event per text delta, a few hundred
 per answer (`app/agent/loop.py`).
 
-Those events do not reach the browser evenly. The backend's guardrail runs in
-`streamProcessingMode: "sync"`, which re-bunches them into 5–11 network chunks — measured at
-53–56 distinct arrival buckets without the guardrail against 5–11 with it (2026-09-22). Painting
-each chunk on arrival is what made answers appear in lumps with no typing motion.
-`useSmoothedText` absorbs that: it keeps the text the server has sent apart from the text on
-screen and closes the gap on a 33ms timer, so chunk size is invisible to the reader. Nothing in
-this file needs to change if the backend later switches the guardrail to `async` and the chunk
-count jumps back to ~55.
+Those events still do not reach the browser perfectly evenly, and `useSmoothedText` absorbs the
+unevenness by keeping the text the server has sent apart from the text on screen and closing
+the gap on a 33ms timer. It fixes jitter, not absence. While the backend's guardrail ran in
+`streamProcessingMode: "sync"` a 2001-character answer arrived in three bursts with a 6.18s
+silence in the middle, and no reveal rate can spread three characters across six seconds — the
+smoother looked broken and the guardrail was the cause. Backend 0.6.0 moved to `async`: ~38
+arrival points about 0.3s apart for a 2028-character answer, which is the input this hook was
+designed for.
+
+`CATCH_UP_DIVISOR = 10` suits that pace. At ~60 characters every 0.3s the displayed text
+settles about 60 characters behind, a third of a second, and the reveal stays continuous.
+
+`discard` exists because the model sometimes narrates before calling a tool, and those words
+are streamed before anything reveals a tool call is coming (`app/streaming.py` in the backend
+spells out why they cannot be withheld). The client drops them and returns to the status line.
+`lastStatus` is kept in `sendPrompt`'s closure for exactly this: the `token` handler nulls
+`status`, so without it the bubble would fall back to the cycling placeholder for the moment
+before the next status event lands.
 
 **Call flow:**
 1. Add human message to history
