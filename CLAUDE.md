@@ -9,7 +9,7 @@ Write PR bodies to `.github/PULL_REQUEST_TEMPLATE.md`'s sections.
 
 ## Project Overview
 Single-page React chatbot application for Hacettepe University AI assistant.
-Built with Vite + React 18 + TypeScript (strict) + Tailwind CSS v4. Deployed to S3 + CloudFront by
+Built with Vite + React 18 + TypeScript (strict) + Tailwind CSS v4 + shadcn/ui (Radix). Deployed to S3 + CloudFront by
 `HacettepeAiFrontendStack` in `../hacettepe-ai-backend`, which uploads this repo's `dist/` and
 fronts the backend Lambda on the same distribution.
 
@@ -17,33 +17,50 @@ fronts the backend Lambda on the same distribution.
 
 ### Component Tree
 ```
-App.tsx                         # Root: global state, layout
+App.tsx                         # Root: global state, layout, the empty-chat greeting
 ├── LoadingScreen.tsx            # Shown while /config.json is loading
 ├── ConfigErrorScreen.tsx        # Shown if /config.json fails to load (manual retry)
-├── Header.tsx                  # Branding
+├── Header.tsx                  # Wordmark; new chat, settings and info buttons
+│   └── SettingsMenu.tsx        # Popover: theme (system/light/dark) and UI language
 ├── ChatConversations.tsx       # Scrollable message list container
-│   └── ChatMessage.tsx         # Message bubble; picks one of three text-reveal mechanisms
-│       └── FeedbackModal.tsx   # 5-star feedback modal (shown per AI message)
-├── ChatInput.tsx               # Input field, send/clear, API calls
-├── Footer.tsx                  # Social links, info button
-└── InfoModal.tsx               # Project info popup
+│   └── ChatMessage.tsx         # Question pill or answer; streamed answers go through useSmoothedText
+│       └── FeedbackModal.tsx   # 5-star feedback dialog (shown per AI message)
+├── ChatInput.tsx               # The composer: input, send, API calls
+├── InfoModal.tsx               # About dialog: project text, GitHub link, version
+└── NewChatDialog.tsx           # Confirms clearing the chat and the session
 ```
+`DeerMark.tsx` is the stroke-drawn deer used as avatar and logo. `src/components/ui/` holds
+generated shadcn components; see the shadcn section below.
 
 Hooks in `src/hooks/`:
 - `useSmoothedText.ts` — reveals a streamed answer at a steady rate regardless of how unevenly
   the network delivers it. See the API Integration section.
 - `useCyclingText.ts` — the typewriter loop behind the placeholder and `LoadingScreen.tsx`.
+- `useSettings.ts` — theme and UI language: state, `localStorage`, the `.dark` class and
+  `<html lang>`.
 
 ## State Management
 No external state library — all prop-drilled from `App.tsx` with `localStorage` persistence.
 
 **App.tsx global state:**
-- `chatHistory` — array of message objects (persisted to localStorage)
-- `language` — pinned to `'TR'`; no toggle. Components keep their EN strings for a future
-  settings page, and App deletes the old `language` localStorage key on mount so an earlier EN
-  choice does not stick
+- `chatHistory` — array of message objects (persisted to localStorage). Empty means the empty
+  chat: greeting and composer centered. See Layout below.
+- `sessionId` — lives here, not in `ChatInput`, because the header's new-chat button clears it
+- `theme`, `language` — from `useSettings()`. `language` changes interface text only, never how
+  the model answers (it answers in the language of the question).
 - `config` — fetched once from `/config.json` via `loadConfig()` (`src/config.ts`); gates rendering behind `LoadingScreen`/`ConfigErrorScreen` until resolved
-- `openModal` — boolean
+- `infoOpen`, `newChatOpen` — dialog state
+
+**Settings storage.** `theme` (`system`/`light`/`dark`) and `ui-language` (`TR`/`EN`) in
+`localStorage`. An inline script in `index.html` reads both before the bundle loads, so a dark
+first paint never flashes white; it mirrors `useSettings.ts`, so change them together.
+`useSettings` also deletes the old `language` key, left by the EN/TR toggle removed in 2.3.0.
+
+**Layout.** The empty chat and the conversation are one tree. Two spacer divs around the
+composer carry the flex growth on an empty chat and hand it to `ChatConversations` once there is
+a message, which slides the composer from the middle to the bottom. `ChatInput` must never
+remount: it holds the in-flight stream and the loading flag, and swapping between two layouts
+on the first question would drop both.
 
 **Shared types live in `src/types.ts`**: `Message` (one chat-history entry, with each optional
 field's meaning commented), `StreamEvent` (the NDJSON event union below), `AppConfig` and
@@ -109,20 +126,21 @@ before the next status event lands.
 4. On `error`, or on any thrown failure, replace the placeholder with a visible message —
    never leave it cycling
 
-**Session management:** `session_id` lives in `localStorage` under `session_id`. Cleared on
-"Clear chat". History is replayed server-side from DynamoDB, so the client sends only the new
+**Session management:** `session_id` lives in `localStorage` under `session_id`. Cleared by
+"New chat" (header, after `NewChatDialog` confirms). History is replayed server-side from DynamoDB, so the client sends only the new
 question — follow-up questions work without sending prior turns.
 
 **Constraints:** Max 30 messages (15 exchanges), below the server's 25-exchange replay window.
 
 ## Feedback System (FeedbackModal.tsx)
 
-- Triggered by "💬 Geri bildirimde bulun" button shown on AI messages after typing completes
+- Triggered by "💬 Geri bildirimde bulun" button shown on AI messages after the reveal completes
 - Button has a wiggle animation (`feedback-emoji-wiggle` CSS class) on appearance
 - Requires `timestamp` to be present on the message
 - Hidden after submission (`feedbackSubmitted` state in ChatMessage)
 - Modal contains:
-  - 5-star rating with half-star support (0.5 increments via left/right half-hover)
+  - 5-star rating with half-star support (0.5 increments via left/right half-hover). The row
+    is a `role="slider"`: arrow keys step by 0.5, Home/End jump to 0 and 5
   - Optional comment textarea
   - Bilingual TR/EN labels
 - `POST {feedbackUrl}` — the fixed path from `/config.json`, not a per-message URL
@@ -134,30 +152,50 @@ question — follow-up questions work without sending prior turns.
   never written. Thanking the user for a rating that went nowhere is the failure to avoid here.
 
 ## Styling
-- Tailwind CSS v4, configured CSS-first: no `tailwind.config.js`, and the theme is the `@theme`
-  block in `src/index.css`. It builds through `@tailwindcss/postcss`. v4 needs Safari 16.4+,
+- Tailwind CSS v4, configured CSS-first: no `tailwind.config.js`; the theme lives in
+  `src/index.css`. It builds through `@tailwindcss/postcss`. v4 needs Safari 16.4+,
   Chrome 111+, Firefox 128+; older browsers get broken styles, not degraded ones.
-- `--color-*: initial` clears Tailwind's default palette, so only these colors exist
-  (`bg-gray-800`, `text-white` and the like compile to nothing):
-  - `primary`: `#050609` (near-black bg)
-  - `secondary`: `#b72e2e` (brand red)
-  - `secondary-red`: `#b5172f` (hover state red)
-  - `tertiary`: `#EDF2F4` (light gray text)
-  - `black`: `#1c1c1c` (card/input bg)
-  - `white-text`: `#ffffff`
-- `index.css` also holds a `@layer base` block restoring v3 defaults that v4 changed
-  (placeholder color, button cursor, 1px table-cell padding) plus `--default-ring-color`, so the
-  v4 upgrade shipped with no visible change. Drop each shim once the design sets its own value.
-- Custom CSS in `index.css`: `.scrollable`, `.scroll-container`, `.custom-toast`, `.feedback-emoji-wiggle`
-- `feedback-emoji-wiggle`: one-shot damped rotation (8° → 6° → 3°) on feedback button appearance, respects `prefers-reduced-motion`
-- Responsive breakpoints: `sm:`, `md:` via Tailwind
+- Colors are roles, shadcn-named, each defined twice in `index.css`: under `:root` (light) and
+  `.dark`. Components use the role (`bg-background`, `text-muted-foreground`, `bg-primary`),
+  never a hex value. `--color-*: initial` in `@theme inline` removes Tailwind's palette, so
+  `bg-gray-800` and the like compile to nothing.
+  - `primary` is Hacettepe red: `#b72e2e` light, `#d8494a` dark (lifted for contrast)
+  - `secondary` is the question pill, `muted` the composer and hover fills, `popover` anything
+    raised (menus, dialogs), `star` the rating
+- Dark mode is the `.dark` class on `<html>` (`@custom-variant dark`), never
+  `prefers-color-scheme` directly, so the user's explicit choice wins over the OS.
+- Font: IBM Plex Sans 400/500/600 from `@fontsource`, imported in `main.tsx`. It cannot be
+  `@import`-ed from `index.css`: Tailwind's PostCSS plugin inlines the file but leaves its
+  relative `url()`s pointing at font files Vite never copies, and the font silently falls back.
+- `.markdown` in `index.css` styles answers (lists, links, tables, code). The typography plugin
+  is not installed; Tailwind's preflight otherwise strips list bullets.
+- Scrollbar: global in `@layer base`, thin, thumb `--scrollbar`, no track.
+- `feedback-emoji-wiggle`: one-shot damped rotation (8° → 6° → 3°) on feedback button
+  appearance. `animate-breathe` pulses the deer while an answer is pending. Both respect
+  `prefers-reduced-motion`.
+
+## shadcn/ui
+`components.json` + `src/components/ui/`. Add a component with `npx shadcn@latest add <name>`;
+the files are ours to edit. Style `radix-nova`, primitives from the `radix-ui` package, icons
+from `lucide-react`, class merging from `cn` (shadcn's own package).
+
+shadcn now generates for React 19, where `ref` is an ordinary prop. On React 18 a plain function
+component drops it, so a generated component used as a Radix `asChild` trigger never passes
+its DOM node up, and the popover or tooltip it opens stays unpositioned at
+`translate(0, -200%)`, off-screen, with no error. `ui/button.tsx` is wrapped in
+`React.forwardRef` for this; do the same to any other generated component that ends up as a
+trigger, and re-apply it after `shadcn add --overwrite`.
+
+`react-refresh/only-export-components` is off for `src/components/ui/**`, which exports
+variant helpers beside components the way upstream does.
 
 ## Key Libraries
 | Library | Purpose |
 |---|---|
 | `react-markdown` + `remark-gfm` | Render AI responses as Markdown |
-| `typewriter-effect` | Animated title in Header |
-| `react-icons` | UI icons (FaUser, FaStar, FaStarHalfStroke, GiDeerHead, etc.) |
+| `radix-ui` (via shadcn) | Dialog, Popover, ToggleGroup, Tooltip: focus, Esc, ARIA |
+| `lucide-react` | Interface icons |
+| `react-icons` | Only what lucide lacks: `FaStar`/`FaStarHalfStroke`, `FaGithub` |
 | `react-toastify` | Toast notifications |
 | Vite | Build tool + dev server |
 
@@ -249,7 +287,8 @@ building, or two different builds report the same version. The hashed asset file
 **Releases.** Bump the version in its own `chore:` commit on `dev` before opening the PR. Tags
 (`vX.Y.Z`) go on the merge commit GitHub creates on `main`, which `dev` never contains, so
 `git describe` on `dev` finds no tag. Read the current version from `package.json` or
-`git tag --sort=-creatordate`.
+`git tag --sort=-creatordate`. After the merge, merge `main` back into `dev` and push, or the
+next PR is refused as "Head branch is out of date".
 
 ## Claude Code Hooks (`.claude/settings.json`)
 - Any Edit/Write to `.ts`/`.tsx`/`.js`/`.jsx` auto-runs `eslint --fix` afterward — no need to manually re-lint a file you just edited.
@@ -259,26 +298,25 @@ building, or two different builds report the same version. The hashed asset file
 - All components are functional with hooks
 - Semicolons are mostly omitted; `ChatInput.tsx` and `ChatConversations.tsx` are mixed.
   Match the file you are editing — ESLint enforces neither.
-- Three ways text reaches the screen, deliberately three different mechanisms:
-  - **Greeting / initial messages** (no `skipTypewriter`): 25ms/char one-shot typewriter, in
-    `ChatMessage.tsx` itself. It is the one message whose full text exists when it mounts, which
-    is why a fixed rate suits it and why it is the only case still handled there.
+- Two ways text reaches the screen:
   - **Streamed answers**: `src/hooks/useSmoothedText.ts`, revealing toward whatever the server
-    has sent so far. Do **not** try to serve this with the greeting's typewriter — that effect
-    restarts from character zero whenever `message` changes, so across a few hundred token
-    events it would stutter from the start forever instead of advancing.
+    has sent so far.
   - **History, human turns, error messages**: instant. `useSmoothedText` distinguishes these
     from a streamed answer by whether the text was already there when the component mounted, so
     no flag is threaded through `ChatInput` or persisted to `localStorage` for it.
+  The greeting is not a chat message: it is static text in `App.tsx`'s empty state. (Until 3.0.0
+  it was the first message and had its own 25ms/char typewriter, with a `skipTypewriter` flag
+  on every other message; old `localStorage` histories may still carry that field. It is
+  ignored.)
 - **Placeholder**: `LOADING_MESSAGES` cycled by `src/hooks/useCyclingText.ts` (reusable; also
-  used by `LoadingScreen.tsx`) at 45ms/char, 220ms for dots, 700ms between messages. It holds
-  only `'🤔 Düşünüyor...'`, because it runs on a timer with no connection to the backend and can
+  used by `LoadingScreen.tsx`) at 45ms/char, 220ms for dots, 700ms between messages. One array
+  per language, at module level: the hook restarts whenever the array's identity changes. It
+  holds only `'Düşünüyor...'`, because it runs on a timer with no connection to the backend and can
   only honestly claim the question was sent. It previously also cycled
   `'🦌 Hacettepe kaynakları taranıyor...'` and `'🧑‍🍳 Cevap üretiliyor...'`, which named states the
   server reports for real — so it regularly announced "generating the answer" while the model
   was still searching. Covers roughly the first 5s, until the first `status` event takes over.
-- `GiDeerHead` icon (react-icons/gi) used as AI avatar; `FaStar`/`FaStarHalfStroke` for feedback rating
-- `dangerouslySetInnerHTML` used only in `InfoModal.tsx` for controlled bilingual HTML content
+- No `dangerouslySetInnerHTML` anywhere; `InfoModal.tsx` keeps its text as paragraph arrays
 - No routing — single view SPA
 - The shell is zsh: an unquoted `$files` is one argument, not a list, and `$PIPESTATUS` does not
   exist. Loop explicitly or pass paths to `git restore --source=HEAD -- <paths>`; never pair
