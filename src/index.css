@@ -1,6 +1,42 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import 'tailwindcss';
+
+@theme {
+  --color-*: initial;
+  --color-primary: #050609;
+  --color-secondary: #b72e2e;
+  --color-tertiary: #edf2f4;
+  --color-black: #1c1c1c;
+  --color-secondary-red: #b5172f;
+  --color-white-text: #ffffff;
+
+  --font-sans: Inter, sans-serif;
+
+  /* v3's default ring color; v4 falls back to currentcolor */
+  --default-ring-color: rgb(59 130 246 / 0.5);
+}
+
+/*
+  v3 defaults that v4 changed, kept so the upgrade alone changes nothing visible. Borders need
+  no shim: `--color-*: initial` removed the gray palette, so v3 already fell back to
+  currentcolor, which is v4's default.
+*/
+@layer base {
+  input::placeholder,
+  textarea::placeholder {
+    color: #9ca3af;
+  }
+
+  /* v4's preflight zeroes padding on every element; v3 left table cells at the browser's 1px */
+  td,
+  th {
+    padding: 1px;
+  }
+
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+}
 
 .scrollable {
     scrollbar-width: thin;

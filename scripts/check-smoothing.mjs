@@ -7,7 +7,8 @@
 // by eye and impossible to miss here.
 
 import assert from 'node:assert/strict'
-import { advance } from '../src/hooks/useSmoothedText.js'
+// A .ts import, run under Node's built-in type stripping (Node 22.18+ / 23.6+).
+import { advance } from '../src/hooks/useSmoothedText.ts'
 
 // A tick budget, not a timing claim. Every case below has to settle well inside it; the point
 // is that the loops terminate rather than that they terminate at any particular speed.

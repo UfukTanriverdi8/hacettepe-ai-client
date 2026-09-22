@@ -1,10 +1,17 @@
 import {useRef, useEffect} from 'react';
 import ChatMessage from './ChatMessage';
+import type { Language, Message } from '../types';
 
 
-const ChatConversations = ({ chatHistory, language, feedbackUrl }) => {
+interface ChatConversationsProps {
+    chatHistory: Message[]
+    language: Language
+    feedbackUrl: string
+}
 
-    const chatContainerRef = useRef(null);
+const ChatConversations = ({ chatHistory, language, feedbackUrl }: ChatConversationsProps) => {
+
+    const chatContainerRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         if (chatContainerRef.current) {
@@ -18,7 +25,7 @@ const ChatConversations = ({ chatHistory, language, feedbackUrl }) => {
     <div ref={chatContainerRef} className='flex flex-col items-center p-4 overflow-y-auto h-full scroll-container'>
         <ChatMessage sender='AI' message={greetingMsg} isPlaceholder={false} language={language} />
       {chatHistory.map((chat, index) => (
-        <ChatMessage key={index} sender={chat.sender} message={chat.message} isPlaceholder={chat.isPlaceholder} skipTypewriter={chat.skipTypewriter} status={chat.status} timestamp={chat.timestamp} question={chat.question} session_id={chat.session_id} feedbackUrl={feedbackUrl} language={language} />
+        <ChatMessage key={index} sender={chat.sender} message={chat.message} isPlaceholder={chat.isPlaceholder} skipTypewriter={chat.skipTypewriter} status={chat.status} timestamp={chat.timestamp} session_id={chat.session_id} feedbackUrl={feedbackUrl} language={language} />
       ))}
     </div>
   );

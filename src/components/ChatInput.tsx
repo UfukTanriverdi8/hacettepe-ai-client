@@ -1,10 +1,12 @@
 import { FaArrowUp, FaTrashCan } from "react-icons/fa6";
 import { useState} from 'react';
+import type { Dispatch, KeyboardEvent, SetStateAction } from 'react';
+import type { Language, Message, StreamEvent } from '../types';
 
 // The backend's status strings are English and defined in app/agent/tool_specs.py
 // (STATUS_MESSAGES and POST_TOOL_STATUS). An unmapped status falls through to the raw string,
 // so a tool added server-side shows something rather than nothing until this map catches up.
-const STATUS_TEXT = {
+const STATUS_TEXT: Record<string, Record<Language, string>> = {
     'searching the knowledge base...': {
         TR: '🦌 Hacettepe kaynakları taranıyor...',
         EN: '🦌 Searching the knowledge base...',
@@ -22,17 +24,24 @@ const STATUS_TEXT = {
     },
 }
 
-const localizeStatus = (message, language) => STATUS_TEXT[message]?.[language] ?? message
+const localizeStatus = (message: string, language: Language) => STATUS_TEXT[message]?.[language] ?? message
 
-const ChatInput = ({chatHistory, setChatHistory, language, chatUrl}) => {
+interface ChatInputProps {
+    chatHistory: Message[]
+    setChatHistory: Dispatch<SetStateAction<Message[]>>
+    language: Language
+    chatUrl: string
+}
+
+const ChatInput = ({chatHistory, setChatHistory, language, chatUrl}: ChatInputProps) => {
     const [inputValue, setInputValue] = useState('');
     const [loading, setLoading] = useState(false);
-    const [sessionId, setSessionId] = useState(() => {
+    const [sessionId, setSessionId] = useState<string | null>(() => {
         const savedSessionId = localStorage.getItem('session_id');
         return savedSessionId ? savedSessionId : null;
     });
 
-    const handleKeyDown = (e) => {
+    const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
         if (e.key === 'Enter') {
           e.preventDefault()
           sendPrompt()
@@ -48,8 +57,8 @@ const ChatInput = ({chatHistory, setChatHistory, language, chatUrl}) => {
         setLoading(true)
 
         if(chatHistory.length >= 30){
-            let maxLimitEN = "You have reached the maximum chat history limit. Please clear the chat history to continue."
-            let maxLimitTR = "Maksimum mesaj sınırına ulaştınız. Devam etmek için lütfen sohbet geçmişini temizleyin."
+            const maxLimitEN = "You have reached the maximum chat history limit. Please clear the chat history to continue."
+            const maxLimitTR = "Maksimum mesaj sınırına ulaştınız. Devam etmek için lütfen sohbet geçmişini temizleyin."
             alert(language === 'EN' ? maxLimitEN : maxLimitTR)
             setLoading(false)
             return
@@ -72,16 +81,16 @@ const ChatInput = ({chatHistory, setChatHistory, language, chatUrl}) => {
 
         // Every stream event is a partial update to that one placeholder, so this runs
         // several times per question rather than once at the end.
-        const patchAiMessage = (patch) => setChatHistory(prevHistory => prevHistory.map(message =>
+        const patchAiMessage = (patch: Partial<Message>) => setChatHistory(prevHistory => prevHistory.map(message =>
             message.id === aiMessageId ? { ...message, ...patch } : message
         ))
 
         let activeSessionId = sessionId
         let answer = ''
-        let lastStatus = null
+        let lastStatus: string | null = null
         let errorShown = false
 
-        const handleEvent = (event) => {
+        const handleEvent = (event: StreamEvent) => {
             switch (event.type) {
                 case 'session':
                     // Sent before any Bedrock work, so the id survives a stream that dies
@@ -116,7 +125,7 @@ const ChatInput = ({chatHistory, setChatHistory, language, chatUrl}) => {
                 case 'done':
                     // timestamp is the DynamoDB sort key this answer is stored under, and is
                     // absent when the write failed — ChatMessage gates the feedback button on it.
-                    patchAiMessage({ timestamp: event.timestamp, question: currentQuestion, session_id: activeSessionId })
+                    patchAiMessage({ timestamp: event.timestamp, session_id: activeSessionId })
                     break
                 case 'error':
                     errorShown = true
@@ -153,14 +162,15 @@ const ChatInput = ({chatHistory, setChatHistory, language, chatUrl}) => {
                 // Chunk boundaries land wherever TCP puts them, not on newlines, so the last
                 // element is usually a partial line. Carry it into the next read instead of
                 // parsing it — parsing throws, dropping it loses tokens.
-                buffer = lines.pop()
+                // split() always returns at least one element, so pop() never yields undefined.
+                buffer = lines.pop() ?? ''
                 for (const line of lines) {
-                    if (line.trim()) handleEvent(JSON.parse(line))
+                    if (line.trim()) handleEvent(JSON.parse(line) as StreamEvent)
                 }
             }
 
             buffer += decoder.decode()
-            if (buffer.trim()) handleEvent(JSON.parse(buffer))
+            if (buffer.trim()) handleEvent(JSON.parse(buffer) as StreamEvent)
 
         } catch (error) {
             console.error('Error:', error);
@@ -192,7 +202,7 @@ const ChatInput = ({chatHistory, setChatHistory, language, chatUrl}) => {
     return (
         <div className="flex justify-center items-center p-2 pt-0">
           <div className="flex items-center w-full max-w-3xl">
-            <div className="flex-grow h-14">
+            <div className="grow h-14">
               <input
                 type="text"
                 placeholder={language === 'EN' ? 'What would you like to know about Hacettepe?' : 'Hacettepe hakkında ne öğrenmek istersiniz?'}
@@ -200,20 +210,20 @@ const ChatInput = ({chatHistory, setChatHistory, language, chatUrl}) => {
                 value={inputValue}
                 onKeyDown={handleKeyDown}
                 onChange={(e) => setInputValue(e.target.value)}
-                className="w-full h-14 px-4 text-white bg-black bg-opacity-50 rounded-xl border-2 border-primary transition-colors duration-300 focus:border-secondary focus:outline-none"
+                className="w-full h-14 px-4 text-white bg-black/50 rounded-xl border-2 border-primary transition-colors duration-300 focus:border-secondary focus:outline-hidden"
               />
             </div>
-            <div className="flex-shrink-0 ml-2 text-2xl">
+            <div className="shrink-0 ml-2 text-2xl">
               <button
               onClick={sendPrompt}
-              className={`transition-all duration-300 p-2 rounded-md focus:outline-none focus:ring-2 ${loading ? 'bg-black text-secondary' : 'bg-secondary text-tertiary hover:bg-secondary-red '} `}>
+              className={`transition-all duration-300 p-2 rounded-md focus:outline-hidden focus:ring-2 ${loading ? 'bg-black text-secondary' : 'bg-secondary text-tertiary hover:bg-secondary-red '} `}>
                 <FaArrowUp />
               </button>
             </div>
-            <div className="flex-shrink-0 ml-2 text-2xl">
+            <div className="shrink-0 ml-2 text-2xl">
               <button
               onClick={clearChat}
-              className="bg-black text-tertiary p-2 rounded-md transition-all hover:bg-secondary duration-300 focus:outline-none focus:ring-2">
+              className="bg-black text-tertiary p-2 rounded-md transition-all hover:bg-secondary duration-300 focus:outline-hidden focus:ring-2">
                 <FaTrashCan />
               </button>
             </div>
