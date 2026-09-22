@@ -11,7 +11,8 @@ const pkg = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 
 // In production the SPA and the API share one CloudFront distribution, so /chat and /feedback
 // are same-origin paths. This proxy reproduces that in dev against a local uvicorn, which keeps
 // config.json identical everywhere and keeps CORS out of the picture entirely.
-// Run alongside: `uv run uvicorn app.main:app --reload` in hacettepe-ai-backend.
+// Run alongside, in hacettepe-ai-backend: `ORIGIN_VERIFY_SECRET= uv run uvicorn app.main:app --reload`.
+// The empty secret matters: .env sets the real one, and without CloudFront's header every /chat gets a 403.
 const backend = 'http://localhost:8000'
 
 // https://vitejs.dev/config/
