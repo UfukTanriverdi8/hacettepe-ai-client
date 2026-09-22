@@ -5,42 +5,50 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import FeedbackModal from './FeedbackModal'
 import { useCyclingText } from '../hooks/useCyclingText'
+import { useSmoothedText } from '../hooks/useSmoothedText'
 
-const LOADING_MESSAGES = ['🤔 Düşünüyor...','🦌 Hacettepe kaynakları taranıyor...' ,'🧑‍🍳 Cevap üretiliyor...']
+// Claims only what is true of the window it covers: the seconds before the backend's first
+// status event, when all that is known is that the question was sent. The two messages this
+// used to cycle alongside it ('🦌 Hacettepe kaynakları taranıyor...', '🧑‍🍳 Cevap üretiliyor...')
+// named states the server now reports for real, on a timer that had no connection to whether
+// they were happening — so the placeholder regularly contradicted the server.
+const LOADING_MESSAGES = ['🤔 Düşünüyor...']
 
 const ChatMessage = ({ sender, message, isPlaceholder, skipTypewriter, status, timestamp, question, session_id, feedbackUrl, language }) => {
     const cyclingMsg = useCyclingText(LOADING_MESSAGES)
-    const [displayedMsg, setDisplayedMsg] = useState("")
-    const [isTypingComplete, setIsTypingComplete] = useState(false)
+    // The greeting is the one message whose full text exists when it mounts, so it is the one
+    // that still types at a fixed rate. Everything else — streamed answers, history, human
+    // turns — goes through the smoother, which decides between animating and instant display
+    // from whether the text grew after mounting.
+    const isGreeting = sender === 'AI' && !isPlaceholder && !skipTypewriter
+    // '' while the placeholder is up, so the first chunk animates in instead of landing whole.
+    const smoothedMsg = useSmoothedText(isPlaceholder ? '' : (message ?? ''))
+    const [typedMsg, setTypedMsg] = useState('')
+    const [greetingComplete, setGreetingComplete] = useState(false)
     const [showFeedbackModal, setShowFeedbackModal] = useState(false)
     const [feedbackSubmitted, setFeedbackSubmitted] = useState(false)
 
     useEffect(() => {
-        if (sender === 'AI' && isPlaceholder) {
-            // Cycling loading animation now lives in useCyclingText
-            return
+        if (!isGreeting) return
 
-        } else if (sender === 'AI' && !skipTypewriter) {
-            // Greeting message — one-time typewriter
-            setDisplayedMsg('')
-            setIsTypingComplete(false)
-            let charIndex = 0
-            const interval = setInterval(() => {
-                setDisplayedMsg(message.slice(0, charIndex + 1))
-                charIndex++
-                if (charIndex >= message.length) {
-                    clearInterval(interval)
-                    setIsTypingComplete(true)
-                }
-            }, 25)
-            return () => clearInterval(interval)
+        setTypedMsg('')
+        setGreetingComplete(false)
+        let charIndex = 0
+        const interval = setInterval(() => {
+            setTypedMsg(message.slice(0, charIndex + 1))
+            charIndex++
+            if (charIndex >= message.length) {
+                clearInterval(interval)
+                setGreetingComplete(true)
+            }
+        }, 25)
+        return () => clearInterval(interval)
+    }, [message, isGreeting])
 
-        } else {
-            // Instant display — real AI responses, history, human messages
-            setDisplayedMsg(message)
-            setIsTypingComplete(true)
-        }
-    }, [message])
+    const displayedMsg = isGreeting ? typedMsg : smoothedMsg
+    // Holds the feedback button back until the text has finished revealing, rather than letting
+    // it appear on the `done` event while the smoother is still catching up.
+    const isTypingComplete = isGreeting ? greetingComplete : displayedMsg === message
 
     const showFeedbackButton = sender === 'AI' && !isPlaceholder && isTypingComplete && timestamp && !feedbackSubmitted
 
