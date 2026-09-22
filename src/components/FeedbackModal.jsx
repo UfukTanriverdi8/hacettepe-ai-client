@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { FaStar, FaStarHalfStroke } from 'react-icons/fa6'
 import { toast } from 'react-toastify'
 
-const FeedbackModal = ({ onClose, question, answer, timestamp, session_id, feedbackUrl, language }) => {
+const FeedbackModal = ({ onClose, timestamp, session_id, feedbackUrl, language }) => {
     const [rating, setRating] = useState(0)
     const [hoverRating, setHoverRating] = useState(0)
     const [comment, setComment] = useState('')

@@ -116,7 +116,7 @@ const ChatInput = ({chatHistory, setChatHistory, language, chatUrl}) => {
                 case 'done':
                     // timestamp is the DynamoDB sort key this answer is stored under, and is
                     // absent when the write failed — ChatMessage gates the feedback button on it.
-                    patchAiMessage({ timestamp: event.timestamp, question: currentQuestion, session_id: activeSessionId })
+                    patchAiMessage({ timestamp: event.timestamp, session_id: activeSessionId })
                     break
                 case 'error':
                     errorShown = true

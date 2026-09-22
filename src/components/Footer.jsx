@@ -1,4 +1,4 @@
-import { FaLinkedin, FaGithub, FaInfoCircle} from "react-icons/fa"
+import { FaGithub, FaInfoCircle} from "react-icons/fa"
 const Footer = ({ onInfoClick }) => {
 
   return (

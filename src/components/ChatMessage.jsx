@@ -14,7 +14,7 @@ import { useSmoothedText } from '../hooks/useSmoothedText'
 // they were happening — so the placeholder regularly contradicted the server.
 const LOADING_MESSAGES = ['🤔 Düşünüyor...']
 
-const ChatMessage = ({ sender, message, isPlaceholder, skipTypewriter, status, timestamp, question, session_id, feedbackUrl, language }) => {
+const ChatMessage = ({ sender, message, isPlaceholder, skipTypewriter, status, timestamp, session_id, feedbackUrl, language }) => {
     const cyclingMsg = useCyclingText(LOADING_MESSAGES)
     // The greeting is the one message whose full text exists when it mounts, so it is the one
     // that still types at a fixed rate. Everything else — streamed answers, history, human
@@ -87,8 +87,6 @@ const ChatMessage = ({ sender, message, isPlaceholder, skipTypewriter, status, t
                             setShowFeedbackModal(false)
                             if (submitted) setFeedbackSubmitted(true)
                         }}
-                        question={question}
-                        answer={message}
                         timestamp={timestamp}
                         session_id={session_id}
                         feedbackUrl={feedbackUrl}

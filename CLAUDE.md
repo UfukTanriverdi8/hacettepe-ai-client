@@ -28,8 +28,6 @@ App.jsx                         # Root: global state, layout
 └── InfoModal.jsx               # Project info popup
 ```
 
-`Chatbot.jsx` is a legacy/unused component.
-
 Hooks in `src/hooks/`:
 - `useSmoothedText.js` — reveals a streamed answer at a steady rate regardless of how unevenly
   the network delivers it. See the API Integration section.
@@ -58,7 +56,6 @@ No external state library — all prop-drilled from `App.jsx` with `localStorage
   id?: number,               // used to patch the placeholder as stream events arrive
   status?: string,           // localized status text, shown while isPlaceholder is true
   timestamp?: string,        // DynamoDB sort key from the `done` event — gates the feedback button
-  question?: string,         // the user's original question
   session_id?: string,       // from the `session` event — the feedback DynamoDB partition key
 }
 ```
@@ -204,8 +201,8 @@ npm run preview  # preview production build
 npm run lint     # ESLint
 ```
 
-`npm run lint` **fails at baseline** — 38 problems on a clean tree, almost all `react/prop-types`
-plus a few unused imports. Compare counts before and after a change rather than expecting zero.
+`npm run lint` passes with zero problems; treat any new one as a regression. `react/prop-types`
+is off in `eslint.config.js`, since no component declares PropTypes.
 
 Full-stack dev needs the backend running alongside:
 ```bash
