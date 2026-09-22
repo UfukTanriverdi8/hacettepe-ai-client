@@ -1,7 +1,9 @@
 import { useState, useEffect } from "react";
 import { FaRegCircleXmark } from "react-icons/fa6";
+import type { MouseEvent } from "react";
+import type { Language } from "../types";
 
-const InfoModal = ({ onClose, language }) => {
+const InfoModal = ({ onClose, language }: { onClose: () => void; language: Language }) => {
     const [displayedText, setDisplayedText] = useState("") // State to hold the currently displayed text
     const infoTitleTR = "Hakkında"
     const infoTitleEN = "About"
@@ -32,7 +34,7 @@ const InfoModal = ({ onClose, language }) => {
         return () => clearInterval(interval) // Cleanup the interval on component unmount
     }, [fullText])
 
-    const handleOverlayClick = (e) => {
+    const handleOverlayClick = (e: MouseEvent<HTMLDivElement>) => {
         if (e.target === e.currentTarget) {
         onClose()
         }

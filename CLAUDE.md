@@ -8,7 +8,7 @@ No CI — there is no `.github` directory, so a PR is not checked by anything au
 
 ## Project Overview
 Single-page React chatbot application for Hacettepe University AI assistant.
-Built with Vite + React 18 + Tailwind CSS v4. Deployed to S3 + CloudFront by
+Built with Vite + React 18 + TypeScript (strict) + Tailwind CSS v4. Deployed to S3 + CloudFront by
 `HacettepeAiFrontendStack` in `../hacettepe-ai-backend`, which uploads this repo's `dist/` and
 fronts the backend Lambda on the same distribution.
 
@@ -16,57 +16,46 @@ fronts the backend Lambda on the same distribution.
 
 ### Component Tree
 ```
-App.jsx                         # Root: global state, layout
-├── LoadingScreen.jsx            # Shown while /config.json is loading
-├── ConfigErrorScreen.jsx        # Shown if /config.json fails to load (manual retry)
-├── Header.jsx                  # Branding
-├── ChatConversations.jsx       # Scrollable message list container
-│   └── ChatMessage.jsx         # Message bubble; picks one of three text-reveal mechanisms
-│       └── FeedbackModal.jsx   # 5-star feedback modal (shown per AI message)
-├── ChatInput.jsx               # Input field, send/clear, API calls
-├── Footer.jsx                  # Social links, info button
-└── InfoModal.jsx               # Project info popup
+App.tsx                         # Root: global state, layout
+├── LoadingScreen.tsx            # Shown while /config.json is loading
+├── ConfigErrorScreen.tsx        # Shown if /config.json fails to load (manual retry)
+├── Header.tsx                  # Branding
+├── ChatConversations.tsx       # Scrollable message list container
+│   └── ChatMessage.tsx         # Message bubble; picks one of three text-reveal mechanisms
+│       └── FeedbackModal.tsx   # 5-star feedback modal (shown per AI message)
+├── ChatInput.tsx               # Input field, send/clear, API calls
+├── Footer.tsx                  # Social links, info button
+└── InfoModal.tsx               # Project info popup
 ```
 
 Hooks in `src/hooks/`:
-- `useSmoothedText.js` — reveals a streamed answer at a steady rate regardless of how unevenly
+- `useSmoothedText.ts` — reveals a streamed answer at a steady rate regardless of how unevenly
   the network delivers it. See the API Integration section.
-- `useCyclingText.js` — the typewriter loop behind the placeholder and `LoadingScreen.jsx`.
+- `useCyclingText.ts` — the typewriter loop behind the placeholder and `LoadingScreen.tsx`.
 
 ## State Management
-No external state library — all prop-drilled from `App.jsx` with `localStorage` persistence.
+No external state library — all prop-drilled from `App.tsx` with `localStorage` persistence.
 
-**App.jsx global state:**
+**App.tsx global state:**
 - `chatHistory` — array of message objects (persisted to localStorage)
 - `language` — pinned to `'TR'`; no toggle. Components keep their EN strings for a future
   settings page, and App deletes the old `language` localStorage key on mount so an earlier EN
   choice does not stick
-- `config` — fetched once from `/config.json` via `loadConfig()` (`src/config.js`); gates rendering behind `LoadingScreen`/`ConfigErrorScreen` until resolved
+- `config` — fetched once from `/config.json` via `loadConfig()` (`src/config.ts`); gates rendering behind `LoadingScreen`/`ConfigErrorScreen` until resolved
 - `openModal` — boolean
 
-**Message object shape:**
-```js
-{
-  sender: 'Human' | 'AI',
-  message: string,
-  isPlaceholder?: boolean,   // true until the first `token` event, and true again after a
-                             // `discard` retracts the tokens that already arrived
-  skipTypewriter?: boolean,  // set on everything except the greeting; ChatMessage reads it as
-                             // "do not run the fixed-rate typewriter"
-  id?: number,               // used to patch the placeholder as stream events arrive
-  status?: string,           // localized status text, shown while isPlaceholder is true
-  timestamp?: string,        // DynamoDB sort key from the `done` event — gates the feedback button
-  session_id?: string,       // from the `session` event — the feedback DynamoDB partition key
-}
-```
+**Shared types live in `src/types.ts`**: `Message` (one chat-history entry, with each optional
+field's meaning commented), `StreamEvent` (the NDJSON event union below), `AppConfig` and
+`Language`. That file is the source of truth for these shapes; this document does not repeat
+them.
 
-## API Integration (ChatInput.jsx)
+## API Integration (ChatInput.tsx)
 
 One backend: the FastAPI service in `../hacettepe-ai-backend`, fronted by the same CloudFront
 distribution that serves this SPA. `/chat` and `/feedback` are therefore **same-origin paths**,
 not absolute URLs — no CORS preflight anywhere. Paths come from `/config.json` as `chatUrl` and
-`feedbackUrl`, passed to `ChatInput.jsx` and (via `ChatConversations` → `ChatMessage`) to
-`FeedbackModal.jsx`.
+`feedbackUrl`, passed to `ChatInput.tsx` and (via `ChatConversations` → `ChatMessage`) to
+`FeedbackModal.tsx`.
 
 ### Chat — `POST {chatUrl}`
 
@@ -125,7 +114,7 @@ question — follow-up questions work without sending prior turns.
 
 **Constraints:** Max 30 messages (15 exchanges), below the server's 25-exchange replay window.
 
-## Feedback System (FeedbackModal.jsx)
+## Feedback System (FeedbackModal.tsx)
 
 - Triggered by "💬 Geri bildirimde bulun" button shown on AI messages after typing completes
 - Button has a wiggle animation (`feedback-emoji-wiggle` CSS class) on appearance
@@ -173,7 +162,7 @@ question — follow-up questions work without sending prior turns.
 
 ## Runtime Config (`/config.json`)
 API paths come from `public/config.json` (dev) or a CDK-deployed `config.json` (CloudFront),
-fetched via `src/config.js`'s `loadConfig()` — **not** Vite env vars (removed; `.env`'s
+fetched via `src/config.ts`'s `loadConfig()` — **not** Vite env vars (removed; `.env`'s
 `VITE_*` keys are no longer read anywhere).
 ```
 { "chatUrl": "/chat", "feedbackUrl": "/feedback" }
@@ -196,13 +185,19 @@ header that CloudFront adds.
 ## Dev Commands
 ```bash
 npm run dev      # start dev server (proxies /chat, /healthz, /feedback to localhost:8000)
-npm run build    # production build
+npm run build    # type-check (tsc), then production build; a type error fails it
+npm run typecheck # tsc alone
 npm run preview  # preview production build
 npm run lint     # ESLint
 ```
 
 `npm run lint` passes with zero problems; treat any new one as a regression. `react/prop-types`
-is off in `eslint.config.js`, since no component declares PropTypes.
+is off in `eslint.config.js`, since TypeScript checks props. The `typescript-eslint` presets come
+last in that file and apply to `src` only: placed first, the base `no-undef` and
+`no-unused-vars` rules override them and misfire on type-only code.
+
+`vite.config.js`, `eslint.config.js` and the scripts stay plain JavaScript; `tsconfig.json`
+includes only `src`.
 
 Full-stack dev needs the backend running alongside:
 ```bash
@@ -215,7 +210,9 @@ Vite's proxy does not buffer, so streaming is visible in dev.
 No test runner (no vitest/jest). Pure logic is checked by standalone Node scripts instead,
 which is enough because the pieces worth checking have no DOM in them:
 - `npm run check:smoothing` → `scripts/check-smoothing.mjs`, driving `useSmoothedText`'s
-  `advance()` over simulated chunky arrivals. It exists because the reveal math fails quietly:
+  `advance()` over simulated chunky arrivals. It imports `useSmoothedText.ts` directly, relying
+  on Node's built-in type stripping (Node 22.18+), which is why `tsconfig.json` sets
+  `erasableSyntaxOnly`: an `enum` in that file would break the script, not the build. It exists because the reveal math fails quietly:
   a step that never quite reaches the goal drops the last characters of every answer, which is
   easy to miss by eye.
 - The NDJSON stream reader was proven the same way, against 1-byte chunks — which splits every
@@ -237,36 +234,36 @@ so `ORIGIN_VERIFY_SECRET` and `BUDGET_ALERT_EMAIL` are required even for a front
 committed can diverge silently.
 
 **Identifying a live build.** `package.json`'s version is substituted into the bundle at build
-time via Vite `define` as `__APP_VERSION__`, and rendered in `InfoModal.jsx`. Bump it *before*
+time via Vite `define` as `__APP_VERSION__`, and rendered in `InfoModal.tsx`. Bump it *before*
 building, or two different builds report the same version. The hashed asset filename in
 `index.html` is the fallback identifier and is always exact.
 
 ## Claude Code Hooks (`.claude/settings.json`)
-- Any Edit/Write to `.jsx`/`.js` auto-runs `eslint --fix` afterward — no need to manually re-lint a file you just edited.
+- Any Edit/Write to `.ts`/`.tsx`/`.js`/`.jsx` auto-runs `eslint --fix` afterward — no need to manually re-lint a file you just edited.
 - Edits to `.env`/`.env.*` are blocked by a PreToolUse hook — ask the user to change it. The file is vestigial: nothing in `src/` reads `VITE_*`, and the hook's own message ("holds live backend URLs") is out of date.
 
 ## Notable Conventions
 - All components are functional with hooks
-- Semicolons are mostly omitted; `ChatInput.jsx` and `ChatConversations.jsx` are mixed.
+- Semicolons are mostly omitted; `ChatInput.tsx` and `ChatConversations.tsx` are mixed.
   Match the file you are editing — ESLint enforces neither.
 - Three ways text reaches the screen, deliberately three different mechanisms:
   - **Greeting / initial messages** (no `skipTypewriter`): 25ms/char one-shot typewriter, in
-    `ChatMessage.jsx` itself. It is the one message whose full text exists when it mounts, which
+    `ChatMessage.tsx` itself. It is the one message whose full text exists when it mounts, which
     is why a fixed rate suits it and why it is the only case still handled there.
-  - **Streamed answers**: `src/hooks/useSmoothedText.js`, revealing toward whatever the server
+  - **Streamed answers**: `src/hooks/useSmoothedText.ts`, revealing toward whatever the server
     has sent so far. Do **not** try to serve this with the greeting's typewriter — that effect
     restarts from character zero whenever `message` changes, so across a few hundred token
     events it would stutter from the start forever instead of advancing.
   - **History, human turns, error messages**: instant. `useSmoothedText` distinguishes these
     from a streamed answer by whether the text was already there when the component mounted, so
     no flag is threaded through `ChatInput` or persisted to `localStorage` for it.
-- **Placeholder**: `LOADING_MESSAGES` cycled by `src/hooks/useCyclingText.js` (reusable; also
-  used by `LoadingScreen.jsx`) at 45ms/char, 220ms for dots, 700ms between messages. It holds
+- **Placeholder**: `LOADING_MESSAGES` cycled by `src/hooks/useCyclingText.ts` (reusable; also
+  used by `LoadingScreen.tsx`) at 45ms/char, 220ms for dots, 700ms between messages. It holds
   only `'🤔 Düşünüyor...'`, because it runs on a timer with no connection to the backend and can
   only honestly claim the question was sent. It previously also cycled
   `'🦌 Hacettepe kaynakları taranıyor...'` and `'🧑‍🍳 Cevap üretiliyor...'`, which named states the
   server reports for real — so it regularly announced "generating the answer" while the model
   was still searching. Covers roughly the first 5s, until the first `status` event takes over.
 - `GiDeerHead` icon (react-icons/gi) used as AI avatar; `FaStar`/`FaStarHalfStroke` for feedback rating
-- `dangerouslySetInnerHTML` used only in `InfoModal.jsx` for controlled bilingual HTML content
+- `dangerouslySetInnerHTML` used only in `InfoModal.tsx` for controlled bilingual HTML content
 - No routing — single view SPA

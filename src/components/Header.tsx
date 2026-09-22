@@ -12,7 +12,7 @@ const Header = () => {
                     .start()
                 }}
                 options={{
-                    delay: "150",
+                    delay: 150,
                     deleteSpeed: "natural",
                     cursor: "_",
                 }}

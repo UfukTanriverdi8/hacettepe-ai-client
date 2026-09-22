@@ -29,7 +29,7 @@ const CATCH_UP_DIVISOR = 10
  * Exported for the sake of being checkable without a DOM — this is the only real logic in the
  * module, and `node scripts/check-smoothing.mjs` drives it directly.
  */
-export function advance(current, goal) {
+export function advance(current: string, goal: string): string {
     if (current === goal) return current
     // A goal that does not extend what is on screen is a replacement rather than more of the
     // same answer — the error event overwriting a partial answer is the case that matters.
@@ -48,7 +48,7 @@ export function advance(current, goal) {
  * streamed answer mounts as a placeholder and grows afterward. Pass '' while the placeholder is
  * up so the first chunk animates in rather than appearing at once.
  */
-export function useSmoothedText(target) {
+export function useSmoothedText(target: string): string {
     const [shown, setShown] = useState(target)
 
     // One timeout that reschedules itself, rather than a standing interval: a message that has

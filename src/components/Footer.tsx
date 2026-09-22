@@ -1,5 +1,5 @@
 import { FaGithub, FaInfoCircle} from "react-icons/fa"
-const Footer = ({ onInfoClick }) => {
+const Footer = ({ onInfoClick }: { onInfoClick: () => void }) => {
 
   return (
   <div className="flex justify-center items-center text-black-text text-opacity-70 w-full py-2">

@@ -1,8 +1,18 @@
 import { useState } from 'react'
 import { FaStar, FaStarHalfStroke } from 'react-icons/fa6'
 import { toast } from 'react-toastify'
+import type { Language } from '../types'
 
-const FeedbackModal = ({ onClose, timestamp, session_id, feedbackUrl, language }) => {
+interface FeedbackModalProps {
+    // true when the rating was stored, which hides the feedback button for good
+    onClose: (submitted: boolean) => void
+    timestamp: string
+    session_id?: string | null
+    feedbackUrl: string
+    language: Language
+}
+
+const FeedbackModal = ({ onClose, timestamp, session_id, feedbackUrl, language }: FeedbackModalProps) => {
     const [rating, setRating] = useState(0)
     const [hoverRating, setHoverRating] = useState(0)
     const [comment, setComment] = useState('')

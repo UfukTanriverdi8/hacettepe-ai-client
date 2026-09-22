@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 
-export function useCyclingText(messages) {
+export function useCyclingText(messages: readonly string[]): string {
     const [displayedText, setDisplayedText] = useState('')
-    const timeoutRef = useRef(null)
+    const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
     useEffect(() => {
         let msgIndex = 0

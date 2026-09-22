@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "tsc && vite build",
+    "typecheck": "tsc",
     "lint": "eslint .",
     "preview": "vite preview",
     "check:smoothing": "node scripts/check-smoothing.mjs"
@@ -32,6 +33,8 @@
     "globals": "^15.9.0",
     "postcss": "^8.4.41",
     "tailwindcss": "^4.3.3",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.70.1",
     "vite": "^6.4.1"
   }
 }

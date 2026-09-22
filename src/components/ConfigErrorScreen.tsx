@@ -1,6 +1,6 @@
 import { GiDeerHead } from "react-icons/gi"
 
-const ConfigErrorScreen = ({ onRetry }) => {
+const ConfigErrorScreen = ({ onRetry }: { onRetry: () => void }) => {
     return (
         <div className="flex flex-col items-center justify-center h-screen bg-primary/85 text-tertiary p-4 text-center">
             <GiDeerHead className="text-5xl text-secondary mb-4" />

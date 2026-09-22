@@ -6,6 +6,7 @@ import remarkGfm from 'remark-gfm'
 import FeedbackModal from './FeedbackModal'
 import { useCyclingText } from '../hooks/useCyclingText'
 import { useSmoothedText } from '../hooks/useSmoothedText'
+import type { Language, Message } from '../types'
 
 // Claims only what is true of the window it covers: the seconds before the backend's first
 // status event, when all that is known is that the question was sent. The two messages this
@@ -14,7 +15,13 @@ import { useSmoothedText } from '../hooks/useSmoothedText'
 // they were happening — so the placeholder regularly contradicted the server.
 const LOADING_MESSAGES = ['🤔 Düşünüyor...']
 
-const ChatMessage = ({ sender, message, isPlaceholder, skipTypewriter, status, timestamp, session_id, feedbackUrl, language }) => {
+type ChatMessageProps = Pick<Message, 'sender' | 'message' | 'isPlaceholder' | 'skipTypewriter' | 'status' | 'timestamp' | 'session_id'> & {
+    // Absent on the greeting, which can never show the feedback button.
+    feedbackUrl?: string
+    language: Language
+}
+
+const ChatMessage = ({ sender, message, isPlaceholder, skipTypewriter, status, timestamp, session_id, feedbackUrl, language }: ChatMessageProps) => {
     const cyclingMsg = useCyclingText(LOADING_MESSAGES)
     // The greeting is the one message whose full text exists when it mounts, so it is the one
     // that still types at a fixed rate. Everything else — streamed answers, history, human
@@ -81,7 +88,7 @@ const ChatMessage = ({ sender, message, isPlaceholder, skipTypewriter, status, t
                         {language === 'TR' ? 'Geri bildirimde bulun' : 'Give feedback'}
                     </button>
                 )}
-                {showFeedbackModal && (
+                {showFeedbackModal && timestamp && feedbackUrl && (
                     <FeedbackModal
                         onClose={(submitted) => {
                             setShowFeedbackModal(false)

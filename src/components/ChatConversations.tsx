@@ -1,10 +1,17 @@
 import {useRef, useEffect} from 'react';
 import ChatMessage from './ChatMessage';
+import type { Language, Message } from '../types';
 
 
-const ChatConversations = ({ chatHistory, language, feedbackUrl }) => {
+interface ChatConversationsProps {
+    chatHistory: Message[]
+    language: Language
+    feedbackUrl: string
+}
 
-    const chatContainerRef = useRef(null);
+const ChatConversations = ({ chatHistory, language, feedbackUrl }: ChatConversationsProps) => {
+
+    const chatContainerRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         if (chatContainerRef.current) {
