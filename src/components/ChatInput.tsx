@@ -14,7 +14,7 @@ const STATUS_TEXT: Record<string, Record<Language, string>> = {
         EN: 'Searching the knowledge base...',
     },
     'fetching a live page...': {
-        TR: 'Güncel sayfa getiriliyor...',
+        TR: 'Güncel sayfa çekiliyor...',
         EN: 'Fetching a live page...',
     },
     // Sent once a tool's results are back, covering the stretch where the model is reasoning

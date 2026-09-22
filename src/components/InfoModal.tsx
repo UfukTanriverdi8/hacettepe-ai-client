@@ -14,7 +14,7 @@ const InfoModal = ({ open, onClose, language }: InfoModalProps) => {
     // One entry per paragraph.
     const infoContentTR = [
         'Hacettepe AI, Hacettepe Üniversitesi öğrencileri için bir yapay zeka asistanıdır.',
-        'Sorularınızı yanıtlarken Hacettepe kaynaklarında arama yapabilir ve güncel web sayfalarını getirebilir.',
+        'Sorularınızı yanıtlarken Hacettepe kaynaklarında arama yapabilir ve güncel web sayfalarını çekebilir.',
         'Soru ve önerileriniz için GitHub üzerinden ulaşabilirsiniz.',
         'Hacettepe AI’yi kullandığınız için teşekkür ederiz!',
     ]
