@@ -67,6 +67,13 @@ a message, which slides the composer from the middle to the bottom. `ChatInput` 
 remount: it holds the in-flight stream and the loading flag, and swapping between two layouts
 on the first question would drop both.
 
+**Scrolling.** `ChatConversations` follows a growing answer with a `ResizeObserver` on the
+message column, not an effect on `chatHistory`. History changes on every stream event, so
+scrolling from there jerks the reader down on each status and still stops early, since
+`useSmoothedText` keeps revealing on its own timer after the last event, which left the end of
+every answer and its feedback button below the fold. A ref holds whether the reader is within
+80px of the bottom, and only then does growth scroll; sending a question sets it back to true.
+
 **Shared types live in `src/types.ts`**: `Message` (one chat-history entry, with each optional
 field's meaning commented), `StreamEvent` (the NDJSON event union below), `AppConfig` and
 `Language`. That file is the source of truth for these shapes; this document does not repeat
@@ -273,6 +280,9 @@ which is enough because the pieces worth checking have no DOM in them:
   line and every multi-byte UTF-8 character.
 - Wire behavior → a mock NDJSON server on `:8000` + `curl -sN | while read` with per-line
   timestamps. Exercises the dev proxy and proves streaming is unbuffered, with no AWS.
+- When a real backend already holds `:8000`, do not kill it. Run the mock on another port and
+  point a scratch Vite config at it (spread `vite.config.js`, override `preview.port` and
+  `preview.proxy`), then `npx vite preview --config <scratch>.mjs`.
 - Visual parity → `git worktree add` the previous commit, `npm ci && npm run build` there, serve
   both builds with `vite preview` on two ports, and screenshot them with Playwright. `preview`
   inherits `server.proxy`, so the same `:8000` mock drives a full streamed answer in both.
