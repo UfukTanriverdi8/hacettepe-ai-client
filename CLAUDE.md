@@ -252,9 +252,12 @@ it. Leave it unapproved unless a build actually fails on esbuild.
 
 Full-stack dev needs the backend running alongside:
 ```bash
-cd ../hacettepe-ai-backend && uv run uvicorn app.main:app --reload
+cd ../hacettepe-ai-backend && ORIGIN_VERIFY_SECRET= uv run uvicorn app.main:app --reload
 ```
-`ORIGIN_VERIFY_SECRET` unset locally makes the origin check a no-op, so no header is needed.
+The empty `ORIGIN_VERIFY_SECRET=` is required. The backend's `.env` sets the real secret (CDK
+refuses to synth without it), and with it set every `/chat` from the dev proxy gets a 403,
+since only CloudFront adds the header. `load_dotenv()` never overrides a variable already in
+the environment, and the check treats an empty secret as unset.
 Vite's proxy does not buffer, so streaming is visible in dev.
 
 ## Testing
