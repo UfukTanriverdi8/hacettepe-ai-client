@@ -292,11 +292,16 @@ which is enough because the pieces worth checking have no DOM in them:
 Runs from `../hacettepe-ai-backend/infra`, which reads this repo's `dist/` — `npm run build` first.
 ```bash
 cd ../hacettepe-ai-backend/infra && set -a && . ../.env && set +a && . .venv/bin/activate
-npx --yes aws-cdk@2 deploy HacettepeAiFrontendStack
+npx --yes aws-cdk@2.1142.0 deploy HacettepeAiFrontendStack
 ```
 Both the `.env` source and the venv activation must be in the same shell as `npx`. `cdk.json`
 runs bare `python app.py`, which exists only inside `.venv`; and synth builds *both* stacks,
 so `ORIGIN_VERIFY_SECRET` and `BUDGET_ALERT_EMAIL` are required even for a frontend-only deploy.
+
+The CLI version is the backend's pin, not this repo's: its CLAUDE.md pairs CLI 2.1142.0 with
+`aws-cdk-lib` 2.270.0 (`infra/requirements.txt`) as a verified combination. A floating
+`aws-cdk@2` runs an untested pair against both stacks. When the backend bumps the pin, change
+it here too.
 
 `cdk deploy` bundles the **working tree**, not a git ref — what is deployed and what is
 committed can diverge silently.
