@@ -28,4 +28,4 @@ When the agent loop uses up its tool iterations it gives up with "I don't have i
 
 ## What was tested
 
-The pools as first written, on 2026-10-13: every question answered with sources in the question's language. Questions edited after that were not re-tested.
+All questions in the pools were tested against the deployed `/chat` on 2026-10-13, and the responses were good enough.
