@@ -36,10 +36,10 @@ App.tsx                         # Root: global state, layout, the empty-chat gre
 generated shadcn components; see the shadcn section below.
 
 Hooks in `src/hooks/`:
-- `useSmoothedText.ts` — reveals a streamed answer at a steady rate regardless of how unevenly
+- `useSmoothedText.ts`: reveals a streamed answer at a steady rate regardless of how unevenly
   the network delivers it. See the API Integration section.
-- `useCyclingText.ts` — the typewriter loop behind the placeholder and `LoadingScreen.tsx`.
-- `useSettings.ts` — theme and UI language: state, `localStorage`, the `.dark` class and
+- `useCyclingText.ts`: the typewriter loop behind the placeholder and `LoadingScreen.tsx`.
+- `useSettings.ts`: theme and UI language, covering state, `localStorage`, the `.dark` class and
   `<html lang>`.
 
 `src/statusText.ts` maps each backend status string (`app/agent/tool_specs.py`) to TR/EN text
@@ -55,16 +55,16 @@ Send a question to the deployed `/chat` before adding it. How the pools were cho
 question and what to avoid: `docs/example-questions.md`.
 
 ## State Management
-No external state library — all prop-drilled from `App.tsx` with `localStorage` persistence.
+No external state library. All state is prop-drilled from `App.tsx`, with `localStorage` persistence.
 
 **App.tsx global state:**
-- `chatHistory` — array of message objects (persisted to localStorage). Empty means the empty
+- `chatHistory`: array of message objects (persisted to localStorage). Empty means the empty
   chat: greeting and composer centered. See Layout below.
-- `sessionId` — lives here, not in `ChatInput`, because the header's new-chat button clears it
-- `theme`, `language` — from `useSettings()`. `language` changes interface text only, never how
+- `sessionId`: lives here, not in `ChatInput`, because the header's new-chat button clears it
+- `theme`, `language`: from `useSettings()`. `language` changes interface text only, never how
   the model answers (it answers in the language of the question).
-- `config` — fetched once from `/config.json` via `loadConfig()` (`src/config.ts`); gates rendering behind `LoadingScreen`/`ConfigErrorScreen` until resolved
-- `infoOpen`, `newChatOpen` — dialog state
+- `config`: fetched once from `/config.json` via `loadConfig()` (`src/config.ts`); gates rendering behind `LoadingScreen`/`ConfigErrorScreen` until resolved
+- `infoOpen`, `newChatOpen`: dialog state
 
 `App` returns early for `configError` and `!config`, so every new hook goes above those `return`s.
 
@@ -95,11 +95,11 @@ them.
 
 One backend: the FastAPI service in `../hacettepe-ai-backend`, fronted by the same CloudFront
 distribution that serves this SPA. `/chat` and `/feedback` are therefore **same-origin paths**,
-not absolute URLs — no CORS preflight anywhere. Paths come from `/config.json` as `chatUrl` and
+not absolute URLs, so there is no CORS preflight anywhere. Paths come from `/config.json` as `chatUrl` and
 `feedbackUrl`, passed to `ChatInput.tsx` and (via `ChatConversations` → `ChatMessage`) to
 `FeedbackModal.tsx`.
 
-### Chat — `POST {chatUrl}`
+### Chat: `POST {chatUrl}`
 
 Request: `{ message, session_id? }`. `session_id` is omitted on the first question of a
 conversation; the server mints one and returns it in the stream's first event.
@@ -112,12 +112,12 @@ Response: **NDJSON**, one JSON object per line, `Content-Type: application/x-ndj
 | `session` | `session_id` | store in state + `localStorage`; sent first, before any model work |
 | `status` | `message` (English) | store raw; `ChatMessage` shows it via `describeStatus` (`src/statusText.ts`): localized text, plus that step's icon in place of the deer |
 | `token` | `text` | **append** to the accumulated answer, clear `isPlaceholder` |
-| `discard` | — | drop every token so far; back to `isPlaceholder` with the last status |
+| `discard` | none | drop every token so far; back to `isPlaceholder` with the last status |
 | `sources` | `sources`, `citations` | store both on the message; bubbles render once the reveal completes. Sent after the last `token`, before `done`; both lists empty when nothing is cited |
 | `done` | `timestamp?` | store as the feedback key; absent when the server's write failed |
 | `error` | `message` | show a localized error based on the current language; log the original server error with `console.error`; do not throw |
 
-Two framing details in the reader are load-bearing. `buffer = lines.pop()` holds back the
+Two framing details in the reader must stay. `buffer = lines.pop()` holds back the
 trailing fragment, because chunk boundaries land wherever TCP puts them rather than on newlines.
 `decoder.decode(value, { stream: true })` does the same for an incomplete UTF-8 sequence, which
 Turkish text hits routinely.
@@ -134,8 +134,8 @@ stops working without an error. Remove both once #45 is fixed.
 
 Those events still do not reach the browser evenly. `useSmoothedText` keeps the text the server
 has sent apart from the text on screen and closes the gap on a 33ms timer (`CATCH_UP_DIVISOR = 10`).
-It fixes jitter, not absence: no reveal rate can spread a long silence. The measurements behind the
-rate: `docs/stream-protocol.md`.
+It fixes jitter and cannot fill a long silence, because no reveal rate can spread a few characters
+across seconds. The measurements behind the rate are in `docs/stream-protocol.md`.
 
 `discard` exists because the model sometimes narrates before calling a tool, and the client drops
 those words and returns to the status line (`lastStatus` in `sendPrompt`'s closure keeps the bubble
@@ -156,12 +156,12 @@ Placement rules and how a bubble behaves on mouse, keyboard and touch: `docs/str
 1. Add human message to history
 2. Add placeholder message with a unique ID (cycling animated loading messages)
 3. `fetch` the stream, then patch that one placeholder repeatedly as events arrive
-4. On `error`, replace the placeholder with a localized visible message and log the original server error with `console.error`; on any thrown failure, replace the placeholder with a visible localized message —
-   never leave it cycling
+4. On `error`, replace the placeholder with a localized visible message and log the original server error with `console.error`; on any thrown failure, replace the placeholder with a visible localized message.
+   Never leave it cycling
 
 **Session management:** `session_id` lives in `localStorage` under `session_id`. Cleared by
 "New chat" (header, after `NewChatDialog` confirms). History is replayed server-side from DynamoDB, so the client sends only the new
-question — follow-up questions work without sending prior turns.
+question, so follow-up questions work without sending prior turns.
 
 **Constraints:** Max 30 messages (15 exchanges), below the server's 25-exchange replay window.
 
@@ -177,7 +177,7 @@ details: `docs/components.md`.
 ## Styling
 - Tailwind CSS v4, configured CSS-first: no `tailwind.config.js`; the theme lives in
   `src/index.css`. It builds through `@tailwindcss/postcss`. v4 needs Safari 16.4+,
-  Chrome 111+, Firefox 128+; older browsers get broken styles, not degraded ones.
+  Chrome 111+, Firefox 128+; older browsers get broken styles with no graceful degradation.
 - Colors are roles, shadcn-named, each defined twice in `index.css`: under `:root` (light) and
   `.dark`. Components use the role (`bg-background`, `text-muted-foreground`, `bg-primary`),
   never a hex value. `--color-*: initial` in `@theme inline` removes Tailwind's palette, so
@@ -230,7 +230,7 @@ variant helpers beside components the way upstream does.
 
 ## Runtime Config (`/config.json`)
 API paths come from `public/config.json` (dev) or a CDK-deployed `config.json` (CloudFront),
-fetched via `src/config.ts`'s `loadConfig()` — **not** Vite env vars (removed; `.env`'s
+fetched via `src/config.ts`'s `loadConfig()`, **not** Vite env vars (removed; `.env`'s
 `VITE_*` keys are no longer read anywhere).
 ```
 { "chatUrl": "/chat", "feedbackUrl": "/feedback" }
@@ -241,7 +241,7 @@ Three copies of this file exist, and **one lives in the other repo**:
 |---|---|
 | `public/config.json` | client (dev) |
 | `config.example.json` | client (reference) |
-| `infra/frontend/config/config.json` | **backend** — this is the one deployed users receive |
+| `infra/frontend/config/config.json` | **backend**, the one deployed users receive |
 
 The backend copy is uploaded by `HacettepeAiFrontendStack` from a directory outside the Vite
 build, so changing it needs a re-upload but no frontend rebuild. Miss it and the deployed SPA
@@ -300,7 +300,7 @@ which is enough because the pieces worth checking have no DOM in them:
   `src/exampleQuestions.ts` over seeded draws. It fails on a repeated entry in one draw, a pool that
   is reordered or skewed, and any pool entry containing "Placeholder" or "Yer tutucu". It cannot say
   whether a question gets a good answer. Only sending it to `/chat` shows that.
-- The NDJSON stream reader was proven the same way, against 1-byte chunks — which splits every
+- The NDJSON stream reader was proven the same way, against 1-byte chunks, which splits every
   line and every multi-byte UTF-8 character.
 - Anything that has to be seen in a browser (layout, animation, streaming, touch, a comparison
   with the previous commit) is the `verify-ui-visually` skill, `.claude/skills/verify-ui-visually/`.
@@ -308,7 +308,7 @@ which is enough because the pieces worth checking have no DOM in them:
   and a real backend on `:8000` alone.
 
 ## Deploy
-Runs from `../hacettepe-ai-backend/infra`, which reads this repo's `dist/` — `npm run build` first.
+Runs from `../hacettepe-ai-backend/infra`, which reads this repo's `dist/`, so run `npm run build` first.
 ```bash
 cd ../hacettepe-ai-backend/infra && set -a && . ../.env && set +a && . .venv/bin/activate
 npx --yes aws-cdk@2.1142.0 deploy HacettepeAiFrontendStack
@@ -317,12 +317,12 @@ Both the `.env` source and the venv activation must be in the same shell as `npx
 runs bare `python app.py`, which exists only inside `.venv`; and synth builds *both* stacks,
 so `ORIGIN_VERIFY_SECRET` and `BUDGET_ALERT_EMAIL` are required even for a frontend-only deploy.
 
-The CLI version is the backend's pin, not this repo's: its CLAUDE.md pairs CLI 2.1142.0 with
+The backend pins the CLI version. Its CLAUDE.md pairs CLI 2.1142.0 with
 `aws-cdk-lib` 2.270.0 (`infra/requirements.txt`) as a verified combination. A floating
 `aws-cdk@2` runs an untested pair against both stacks. When the backend bumps the pin, change
 it here too.
 
-`cdk deploy` bundles the **working tree**, not a git ref — what is deployed and what is
+`cdk deploy` bundles the **working tree** (not a git ref), so what is deployed and what is
 committed can diverge silently.
 
 **Identifying a live build.** `package.json`'s version is substituted into the bundle at build
@@ -339,13 +339,13 @@ GitHub closes an issue only when a closing keyword reaches `main`, so the releas
 `Closes #N` for each issue fixed on `dev`.
 
 ## Claude Code Hooks (`.claude/settings.json`)
-- Any Edit/Write to `.ts`/`.tsx`/`.js`/`.jsx` auto-runs `eslint --fix` afterward — no need to manually re-lint a file you just edited.
-- Edits to `.env`/`.env.*` are blocked by a PreToolUse hook — ask the user to change it. The file is vestigial: nothing in `src/` reads `VITE_*`, and the hook's own message ("holds live backend URLs") is out of date.
+- Any Edit/Write to `.ts`/`.tsx`/`.js`/`.jsx` auto-runs `eslint --fix` afterward, so there is no need to re-lint a file you just edited.
+- Edits to `.env`/`.env.*` are blocked by a PreToolUse hook, so ask the user to change it. The file is vestigial: nothing in `src/` reads `VITE_*`, and the hook's own message ("holds live backend URLs") is out of date.
 
 ## Notable Conventions
 - All components are functional with hooks
 - Semicolons are mostly omitted; `ChatInput.tsx` and `ChatConversations.tsx` are mixed.
-  Match the file you are editing — ESLint enforces neither.
+  Match the file you are editing. ESLint enforces neither.
 - Two ways text reaches the screen:
   - **Streamed answers**: `src/hooks/useSmoothedText.ts`, revealing toward whatever the server
     has sent so far.
@@ -362,10 +362,10 @@ GitHub closes an issue only when a closing keyword reaches `main`, so the releas
   holds only `'Düşünüyor...'`, because it runs on a timer with no connection to the backend and can
   only honestly claim the question was sent. It previously also cycled
   `'🦌 Hacettepe kaynakları taranıyor...'` and `'🧑‍🍳 Cevap üretiliyor...'`, which named states the
-  server reports for real — so it regularly announced "generating the answer" while the model
+  server reports for real, so it regularly announced "generating the answer" while the model
   was still searching. Covers roughly the first 5s, until the first `status` event takes over.
 - No `dangerouslySetInnerHTML` anywhere; `InfoModal.tsx` keeps its text as paragraph arrays
-- No routing — single view SPA
+- No routing: single view SPA
 - The shell is zsh: an unquoted `$files` is one argument, not a list, and `$PIPESTATUS` does not
   exist. Loop explicitly or pass paths to `git restore --source=HEAD -- <paths>`; never pair
   a deleting step with a restoring step that relies on word-splitting.

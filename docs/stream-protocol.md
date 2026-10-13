@@ -4,7 +4,7 @@ Detail behind the "API Integration" section of `CLAUDE.md`, which keeps the even
 
 ## Smoothing the reveal
 
-Events from `/chat` do not reach the browser perfectly evenly. `useSmoothedText` absorbs the unevenness by keeping the text the server has sent apart from the text on screen, and closing the gap on a 33ms timer. It fixes jitter, not absence.
+Events from `/chat` do not reach the browser perfectly evenly. `useSmoothedText` absorbs the unevenness by keeping the text the server has sent apart from the text on screen, and closing the gap on a 33ms timer. It fixes jitter and cannot fill a silence.
 
 While the backend's guardrail ran in `streamProcessingMode: "sync"`, a 2001-character answer arrived in three bursts with a 6.18s silence in the middle. No reveal rate can spread three characters across six seconds, so the smoother looked broken and the guardrail was the cause. Backend 0.6.0 moved to `async`, which gives about 38 arrival points roughly 0.3s apart for a 2028-character answer. That is the input this hook was designed for.
 
@@ -16,7 +16,7 @@ While the backend's guardrail ran in `streamProcessingMode: "sync"`, a 2001-char
 
 The model sometimes narrates before calling a tool, and those words are streamed before anything reveals that a tool call is coming. `app/streaming.py` in the backend spells out why they cannot be withheld. The client drops them and returns to the status line.
 
-`lastStatus` is kept in `sendPrompt`'s closure for exactly this. The `token` handler nulls `status`, so without it the bubble would fall back to the cycling placeholder for the moment before the next status event lands.
+`lastStatus` is kept in `sendPrompt`'s closure for this case. The `token` handler nulls `status`, so without it the bubble would fall back to the cycling placeholder for the moment before the next status event lands.
 
 Whether preamble should stay visible instead, interleaved the way Claude.ai shows it, is open as #22. Change neither side of `discard` without settling that first.
 
