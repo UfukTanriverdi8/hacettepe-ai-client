@@ -1,5 +1,5 @@
 import { ArrowUp } from 'lucide-react';
-import { useState } from 'react';
+import { forwardRef, useImperativeHandle, useRef, useState } from 'react';
 import type { Dispatch, FormEvent, SetStateAction } from 'react';
 import { toast } from 'react-toastify';
 import { Button } from '@/components/ui/button';
@@ -18,9 +18,21 @@ interface ChatInputProps {
     language: Language
     chatUrl: string
 }
+export interface ChatInputHandle {
+    setValueAndFocus: (value: string) => void
+}
 
-const ChatInput = ({chatHistory, setChatHistory, sessionId, setSessionId, language, chatUrl}: ChatInputProps) => {
+const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(({chatHistory, setChatHistory, sessionId, setSessionId, language, chatUrl}, ref) => {
     const [inputValue, setInputValue] = useState('');
+    const inputRef = useRef<HTMLInputElement>(null)
+
+    useImperativeHandle(ref, () => ({
+        setValueAndFocus: (value: string) => {
+            setInputValue(value)
+            inputRef.current?.focus()
+            inputRef.current?.setSelectionRange(value.length, value.length)
+        }
+    }))
     const [loading, setLoading] = useState(false);
 
       const sendPrompt = async (e: FormEvent<HTMLFormElement>) => {
@@ -183,6 +195,7 @@ const ChatInput = ({chatHistory, setChatHistory, sessionId, setSessionId, langua
             className="flex items-center gap-2 rounded-[22px] border bg-muted py-1.5 pr-1.5 pl-4 transition-colors focus-within:border-primary/50"
         >
             <input
+                ref={inputRef}
                 id="chat-input"
                 type="text"
                 aria-label={label}
@@ -203,6 +216,7 @@ const ChatInput = ({chatHistory, setChatHistory, sessionId, setSessionId, langua
             </Button>
         </form>
     )
-}
+})
+ChatInput.displayName = 'ChatInput'
 
 export default ChatInput

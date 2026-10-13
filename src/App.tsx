@@ -1,6 +1,6 @@
 import Header from './components/Header'
 import ChatConversations from './components/ChatConversations'
-import ChatInput from './components/ChatInput'
+import ChatInput, { type ChatInputHandle } from './components/ChatInput'
 import DeerMark from './components/DeerMark'
 import InfoModal from './components/InfoModal'
 import NewChatDialog from './components/NewChatDialog'
@@ -9,15 +9,31 @@ import ConfigErrorScreen from './components/ConfigErrorScreen'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { loadConfig } from './config'
 import { useSettings } from './hooks/useSettings'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.min.css';
 import type { AppConfig, Message } from './types'
 
+
+const EXAMPLE_QUESTIONS = {
+    EN: [
+        'Placeholder: What is a fictional fact about Hacettepe?',
+        'Placeholder: Can you invent a Hacettepe tradition?',
+        'Placeholder: Describe an imaginary Hacettepe event.',
+        'Placeholder: What would a fictional Hacettepe building look like?',
+    ],
+    TR: [
+        'Yer tutucu: Hacettepe hakkında hayali bir bilgi nedir?',
+        'Yer tutucu: Hayali bir Hacettepe geleneği oluşturabilir misin?',
+        'Yer tutucu: Hayali bir Hacettepe etkinliğini anlatır mısın?',
+        'Yer tutucu: Hayali bir Hacettepe binası nasıl görünürdü?',
+    ],
+}
 const App =  () => {
     const { theme, setTheme, language, setLanguage } = useSettings()
     const [infoOpen, setInfoOpen] = useState(false)
     const [newChatOpen, setNewChatOpen] = useState(false)
+    const chatInputRef = useRef<ChatInputHandle>(null)
 
     const [chatHistory, setChatHistory] = useState<Message[]>(() => {
         // Retrieve chat history from localStorage or default to []
@@ -97,11 +113,25 @@ const App =  () => {
                         <h2 className="text-2xl font-medium tracking-tight text-balance">
                             {tr ? 'Merhaba! Bugün size nasıl yardımcı olabilirim?' : 'Hello! How can I help you today?'}
                         </h2>
+                        <div className="flex flex-wrap justify-center gap-2">
+                            {EXAMPLE_QUESTIONS[language].map((question) => (
+                                <button
+                                    key={question}
+                                    type="button"
+                                    disabled={hasChat}
+                                    onClick={() => chatInputRef.current?.setValueAndFocus(question)}
+                                    className="rounded-full border px-3 py-2 text-sm transition-colors hover:bg-muted"
+                                >
+                                    {question}
+                                </button>
+                            ))}
+                        </div>
                     </div>
                 </div>
             </div>
             <div className="mx-auto w-full max-w-3xl shrink-0 px-4">
                 <ChatInput
+                    ref={chatInputRef}
                     language={language}
                     chatHistory={chatHistory}
                     setChatHistory={setChatHistory}
