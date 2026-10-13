@@ -47,7 +47,10 @@ assert.deepEqual([...pool], before, 'pickRandom reordered the pool')
 // seed is fixed, so this band cannot flake. It catches a stuck shuffle and a visibly skewed one.
 const expected = (DRAWS * EXAMPLE_COUNT) / pool.length
 for (const [question, n] of counts) {
-    assert.ok(Math.abs(n - expected) <= expected * 0.2, `skewed draw: "${question}" came up ${n} times, expected about ${expected}`)
+    assert.ok(
+        Math.abs(n - expected) <= expected * 0.2,
+        `skewed draw: "${question}" came up ${n} times, expected about ${expected}`,
+    )
 }
 
 // Every position in the draw is reachable by every entry, not only the first one.

@@ -22,7 +22,10 @@ export function useSettings() {
         localStorage.setItem(THEME_KEY, theme)
         const media = matchMedia('(prefers-color-scheme: dark)')
         const apply = () => {
-            document.documentElement.classList.toggle('dark', theme === 'dark' || (theme === 'system' && media.matches))
+            document.documentElement.classList.toggle(
+                'dark',
+                theme === 'dark' || (theme === 'system' && media.matches),
+            )
         }
         apply()
         if (theme !== 'system') return

@@ -27,7 +27,9 @@ export function useCyclingText(messages: readonly string[]): string {
         }
         typeNext()
 
-        return () => { if (timeoutRef.current) clearTimeout(timeoutRef.current) }
+        return () => {
+            if (timeoutRef.current) clearTimeout(timeoutRef.current)
+        }
     }, [messages])
 
     return displayedText

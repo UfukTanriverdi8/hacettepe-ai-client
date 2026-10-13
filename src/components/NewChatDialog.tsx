@@ -1,5 +1,13 @@
 import { Button } from '@/components/ui/button'
-import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import {
+    Dialog,
+    DialogClose,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog'
 import type { Language } from '../types'
 
 interface NewChatDialogProps {
@@ -29,7 +37,12 @@ const NewChatDialog = ({ open, onOpenChange, onConfirm, language }: NewChatDialo
                     <DialogClose asChild>
                         <Button variant="ghost">{tr ? 'İptal' : 'Cancel'}</Button>
                     </DialogClose>
-                    <Button onClick={() => { onConfirm(); onOpenChange(false) }}>
+                    <Button
+                        onClick={() => {
+                            onConfirm()
+                            onOpenChange(false)
+                        }}
+                    >
                         {tr ? 'Yeni sohbet' : 'New chat'}
                     </Button>
                 </DialogFooter>

@@ -30,7 +30,7 @@ export const EXAMPLE_POOL: Record<Language, readonly string[]> = {
         "Hacettepe'de burs ve öğrenci yardımı imkânları nelerdir?",
         "Endüstri Mühendisliği'nde zorunlu staj nasıl yapılır?",
         'Erasmus ile yurt dışına gitmek için başvuru şartları nelerdir?',
-        "Beytepe kampüsündeki barınma ve yurt imkânları nelerdir?",
+        'Beytepe kampüsündeki barınma ve yurt imkânları nelerdir?',
         'Yaz okulunda ders almak için ne yapmam gerekiyor?',
         'Kayıt dondurma nasıl yapılır?',
         'Mezuniyet için gerekli şartlar nelerdir?',

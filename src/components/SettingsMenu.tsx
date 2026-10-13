@@ -13,7 +13,8 @@ interface SettingsMenuProps {
 }
 
 // Selected segment lifts onto the popover color, the rest sit on the muted track.
-const segmentItem = 'flex-1 h-7 text-[13px] font-normal text-muted-foreground hover:bg-transparent data-[state=on]:bg-popover data-[state=on]:font-medium data-[state=on]:text-foreground data-[state=on]:shadow-sm'
+const segmentItem =
+    'flex-1 h-7 text-[13px] font-normal text-muted-foreground hover:bg-transparent data-[state=on]:bg-popover data-[state=on]:font-medium data-[state=on]:text-foreground data-[state=on]:shadow-sm'
 
 const SettingsMenu = ({ theme, setTheme, language, setLanguage }: SettingsMenuProps) => {
     const tr = language === 'TR'
@@ -24,7 +25,12 @@ const SettingsMenu = ({ theme, setTheme, language, setLanguage }: SettingsMenuPr
             <Tooltip>
                 <TooltipTrigger asChild>
                     <PopoverTrigger asChild>
-                        <Button variant="ghost" size="icon" aria-label={label} className="size-10 text-muted-foreground">
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            aria-label={label}
+                            className="size-10 text-muted-foreground"
+                        >
                             <SlidersHorizontal className="size-5" />
                         </Button>
                     </PopoverTrigger>
@@ -33,36 +39,54 @@ const SettingsMenu = ({ theme, setTheme, language, setLanguage }: SettingsMenuPr
             </Tooltip>
             <PopoverContent align="end" sideOffset={6} className="w-64 gap-4 rounded-xl p-3.5">
                 <div className="flex flex-col gap-2">
-                    <p id="settings-theme" className="text-xs font-medium text-muted-foreground">{tr ? 'Tema' : 'Theme'}</p>
+                    <p id="settings-theme" className="text-xs font-medium text-muted-foreground">
+                        {tr ? 'Tema' : 'Theme'}
+                    </p>
                     <ToggleGroup
                         type="single"
                         value={theme}
                         // Radix reports '' when the pressed item is clicked again; a segmented
                         // control always has one value, so that click is ignored.
-                        onValueChange={value => { if (value) setTheme(value as ThemePreference) }}
+                        onValueChange={(value) => {
+                            if (value) setTheme(value as ThemePreference)
+                        }}
                         aria-labelledby="settings-theme"
                         spacing={0}
                         className="w-full rounded-lg bg-muted p-[3px]"
                     >
-                        <ToggleGroupItem value="system" className={segmentItem}>{tr ? 'Sistem' : 'System'}</ToggleGroupItem>
-                        <ToggleGroupItem value="light" className={segmentItem}>{tr ? 'Açık' : 'Light'}</ToggleGroupItem>
-                        <ToggleGroupItem value="dark" className={segmentItem}>{tr ? 'Koyu' : 'Dark'}</ToggleGroupItem>
+                        <ToggleGroupItem value="system" className={segmentItem}>
+                            {tr ? 'Sistem' : 'System'}
+                        </ToggleGroupItem>
+                        <ToggleGroupItem value="light" className={segmentItem}>
+                            {tr ? 'Açık' : 'Light'}
+                        </ToggleGroupItem>
+                        <ToggleGroupItem value="dark" className={segmentItem}>
+                            {tr ? 'Koyu' : 'Dark'}
+                        </ToggleGroupItem>
                     </ToggleGroup>
                 </div>
                 <div className="flex flex-col gap-2">
-                    <p id="settings-language" className="text-xs font-medium text-muted-foreground">{tr ? 'Dil' : 'Language'}</p>
+                    <p id="settings-language" className="text-xs font-medium text-muted-foreground">
+                        {tr ? 'Dil' : 'Language'}
+                    </p>
                     <ToggleGroup
                         type="single"
                         value={language}
-                        onValueChange={value => { if (value) setLanguage(value as Language) }}
+                        onValueChange={(value) => {
+                            if (value) setLanguage(value as Language)
+                        }}
                         aria-labelledby="settings-language"
                         spacing={0}
                         className="w-full rounded-lg bg-muted p-[3px]"
                     >
                         {/* Each language names itself, so someone who switched by mistake can
                             still find the way back. */}
-                        <ToggleGroupItem value="TR" lang="tr" className={segmentItem}>Türkçe</ToggleGroupItem>
-                        <ToggleGroupItem value="EN" lang="en" className={segmentItem}>English</ToggleGroupItem>
+                        <ToggleGroupItem value="TR" lang="tr" className={segmentItem}>
+                            Türkçe
+                        </ToggleGroupItem>
+                        <ToggleGroupItem value="EN" lang="en" className={segmentItem}>
+                            English
+                        </ToggleGroupItem>
                     </ToggleGroup>
                 </div>
                 <p className="text-xs leading-relaxed text-muted-foreground">

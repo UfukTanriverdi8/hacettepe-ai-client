@@ -9,7 +9,9 @@ const ConfigErrorScreen = ({ onRetry }: { onRetry: () => void }) => {
             <DeerMark className="size-12 text-primary" />
             <div className="flex flex-col gap-1">
                 <p>Uygulama yapılandırması yüklenemedi. Lütfen tekrar deneyin.</p>
-                <p className="text-muted-foreground" lang="en">Failed to load app configuration. Please try again.</p>
+                <p className="text-muted-foreground" lang="en">
+                    Failed to load app configuration. Please try again.
+                </p>
             </div>
             <Button onClick={onRetry} size="lg" className="px-4">
                 Tekrar dene / Retry

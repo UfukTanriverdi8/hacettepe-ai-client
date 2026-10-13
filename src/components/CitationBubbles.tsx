@@ -47,17 +47,21 @@ const CitationBubble = ({ source, language }: { source: Source; language: Langua
                     target="_blank"
                     rel="noopener noreferrer"
                     aria-label={bubbleLabel(source, language)}
-                    onPointerDown={(e) => { pointerType.current = e.pointerType }}
+                    onPointerDown={(e) => {
+                        pointerType.current = e.pointerType
+                    }}
                     onClick={(e) => {
                         if (pointerType.current === 'touch') {
                             e.preventDefault()
-                            setOpen(o => !o)
+                            setOpen((o) => !o)
                         }
                         pointerType.current = ''
                     }}
-                    className={`cite inline-grid size-5 place-items-center rounded-full border text-[11px] leading-none font-medium tabular-nums no-underline transition-colors focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none ${live
-                        ? 'border-primary/40 bg-primary/10 text-primary hover:border-primary data-[state=open]:border-primary'
-                        : 'bg-muted text-muted-foreground hover:border-muted-foreground hover:text-foreground data-[state=open]:border-muted-foreground data-[state=open]:text-foreground'}`}
+                    className={`cite inline-grid size-5 place-items-center rounded-full border text-[11px] leading-none font-medium tabular-nums no-underline transition-colors focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none ${
+                        live
+                            ? 'border-primary/40 bg-primary/10 text-primary hover:border-primary data-[state=open]:border-primary'
+                            : 'bg-muted text-muted-foreground hover:border-muted-foreground hover:text-foreground data-[state=open]:border-muted-foreground data-[state=open]:text-foreground'
+                    }`}
                 >
                     {source.n}
                 </a>
@@ -79,13 +83,18 @@ const CitationBubble = ({ source, language }: { source: Source; language: Langua
                     rel="noopener noreferrer"
                     className="flex items-start gap-2.5 rounded-lg px-3 py-2.5 transition-colors hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
                 >
-                    <Icon aria-hidden="true" className={`mt-0.5 size-4 shrink-0 ${live ? 'text-primary' : 'text-muted-foreground'}`} />
+                    <Icon
+                        aria-hidden="true"
+                        className={`mt-0.5 size-4 shrink-0 ${live ? 'text-primary' : 'text-muted-foreground'}`}
+                    />
                     <span className="min-w-0">
                         {/* Without a real title the URL line below already names the page. */}
                         {hasTitle(source) && (
                             <span className="block leading-snug font-medium">{source.title}</span>
                         )}
-                        <span className="mt-0.5 block text-xs break-all text-muted-foreground">{displayUrl(source.url)}</span>
+                        <span className="mt-0.5 block text-xs break-all text-muted-foreground">
+                            {displayUrl(source.url)}
+                        </span>
                     </span>
                 </a>
             </HoverCardContent>
@@ -102,8 +111,8 @@ interface CitationBubblesProps {
 
 const CitationBubbles = ({ numbers, sources, language }: CitationBubblesProps) => (
     <span className="ml-1.5 inline-flex animate-in gap-[3px] whitespace-nowrap align-[1px] duration-300 fade-in zoom-in-75 motion-reduce:animate-none">
-        {numbers.map(n => {
-            const source = sources.find(s => s.n === n)
+        {numbers.map((n) => {
+            const source = sources.find((s) => s.n === n)
             return source && <CitationBubble key={n} source={source} language={language} />
         })}
     </span>
