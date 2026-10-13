@@ -347,20 +347,10 @@ which is enough because the pieces worth checking have no DOM in them:
   whether a question gets a good answer. Only sending it to `/chat` shows that.
 - The NDJSON stream reader was proven the same way, against 1-byte chunks — which splits every
   line and every multi-byte UTF-8 character.
-- Wire behavior → a mock NDJSON server on `:8000` + `curl -sN | while read` with per-line
-  timestamps. Exercises the dev proxy and proves streaming is unbuffered, with no AWS.
-- When a real backend already holds `:8000`, do not kill it. Run the mock on another port and
-  point a scratch Vite config at it (spread `vite.config.js`, override `preview.port` and
-  `preview.proxy`), then `npx vite preview --config <scratch>.mjs`. Check first what holds the
-  port (`ss -ltnp | grep ':8000 '`): it can be another project's service, and a `/chat` POST
-  through the dev proxy lands there.
-- Visual parity → `git worktree add` the previous commit, `npm ci && npm run build` there, serve
-  both builds with `vite preview` on two ports, and screenshot them with Playwright. `preview`
-  inherits `server.proxy`, so the same `:8000` mock drives a full streamed answer in both.
-  Wait ~600ms after focusing a button: `transition-all` fades the focus ring in.
-- Touch behavior → Playwright `newContext({ hasTouch: true, isMobile: true })` and
-  `locator.tap()`. A link opened from the sandbox lands on `chrome-error://`: the tab opened,
-  the external host is just unreachable.
+- Anything that has to be seen in a browser (layout, animation, streaming, touch, a comparison
+  with the previous commit) is the `verify-ui-visually` skill, `.claude/skills/verify-ui-visually/`.
+  It runs a mock `/chat` and a scratch build on spare ports, so it needs no AWS and leaves `dist/`
+  and a real backend on `:8000` alone.
 
 ## Deploy
 Runs from `../hacettepe-ai-backend/infra`, which reads this repo's `dist/` — `npm run build` first.
