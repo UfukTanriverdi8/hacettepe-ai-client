@@ -1,12 +1,13 @@
-# Hacettepe AI Client - Project Context
+# hacettepe-ai-client - Project Context
 
 ## Git Commits
 Never add a "Co-Authored-By: Claude..." line or any other self-attribution to commit messages.
 
 Work lands on `dev`, then a PR to `main` (the default branch). Never commit to `main` directly.
-CI (`.github/workflows/ci.yml`) runs on pushes and PRs to `dev` and `main`: `npm ci`, lint, typecheck,
-build, `check:smoothing` and `check:citations`, on Node 24. It has no secrets and reads nothing from AWS.
+CI (`.github/workflows/ci.yml`) runs on pushes and PRs to `dev` and `main`: `npm ci`, lint, `format:check`, typecheck,
+build, `check:smoothing`, `check:citations` and `check:example-questions`, on Node 24. It has no secrets and reads nothing from AWS.
 It runs the same commands as Dev Commands below, so a green local run predicts a green PR.
+Run `npm run format` before committing: CI fails a file Prettier would change.
 Write PR bodies to `.github/PULL_REQUEST_TEMPLATE.md`'s sections.
 
 ## Project Overview
@@ -19,7 +20,7 @@ fronts the backend Lambda on the same distribution.
 
 ### Component Tree
 ```
-App.tsx                         # Root: global state, layout, the empty-chat greeting
+App.tsx                         # Root: global state, layout, the empty-chat greeting and example chips
 ├── LoadingScreen.tsx            # Shown while /config.json is loading
 ├── ConfigErrorScreen.tsx        # Shown if /config.json fails to load (manual retry)
 ├── Header.tsx                  # Wordmark; new chat, settings and info buttons
@@ -28,7 +29,7 @@ App.tsx                         # Root: global state, layout, the empty-chat gre
 │   └── ChatMessage.tsx         # Question pill or answer; streamed answers go through useSmoothedText
 │       ├── CitationBubbles.tsx # Numbered source bubbles, each with a HoverCard preview
 │       └── FeedbackModal.tsx   # 5-star feedback dialog (shown per AI message)
-├── ChatInput.tsx               # The composer: input, send, API calls
+├── ChatInput.tsx               # The composer: input, send, API calls. A forwardRef handle, setValueAndFocus, lets App fill it
 ├── InfoModal.tsx               # About dialog: project text, GitHub link, version
 └── NewChatDialog.tsx           # Confirms clearing the chat and the session
 ```
@@ -36,10 +37,10 @@ App.tsx                         # Root: global state, layout, the empty-chat gre
 generated shadcn components; see the shadcn section below.
 
 Hooks in `src/hooks/`:
-- `useSmoothedText.ts` — reveals a streamed answer at a steady rate regardless of how unevenly
+- `useSmoothedText.ts`: reveals a streamed answer at a steady rate regardless of how unevenly
   the network delivers it. See the API Integration section.
-- `useCyclingText.ts` — the typewriter loop behind the placeholder and `LoadingScreen.tsx`.
-- `useSettings.ts` — theme and UI language: state, `localStorage`, the `.dark` class and
+- `useCyclingText.ts`: the typewriter loop behind the placeholder and `LoadingScreen.tsx`.
+- `useSettings.ts`: theme and UI language, covering state, `localStorage`, the `.dark` class and
   `<html lang>`.
 
 `src/statusText.ts` maps each backend status string (`app/agent/tool_specs.py`) to TR/EN text
@@ -47,17 +48,26 @@ and a lucide icon (`Search`, `Globe`, `BookOpen`). Messages store the raw string
 at render time, so a language switch mid-answer re-words the line. An unmapped status shows
 raw, with the deer. Add new backend statuses here.
 
+`src/exampleQuestions.ts` holds the example questions on the empty screen, one pool of 10 per
+language. `App.tsx` draws 3 per page load, and a chip fills the input through `ChatInput`'s
+`setValueAndFocus` without sending. The chips are `disabled` once there is a chat, since the
+collapsed empty state keeps its buttons in the tab order (`inert` is no option on React 18).
+Send a question to the deployed `/chat` before adding it. How the pools were chosen, how to test a
+question and what to avoid: `docs/example-questions.md`.
+
 ## State Management
-No external state library — all prop-drilled from `App.tsx` with `localStorage` persistence.
+No external state library. All state is prop-drilled from `App.tsx`, with `localStorage` persistence.
 
 **App.tsx global state:**
-- `chatHistory` — array of message objects (persisted to localStorage). Empty means the empty
+- `chatHistory`: array of message objects (persisted to localStorage). Empty means the empty
   chat: greeting and composer centered. See Layout below.
-- `sessionId` — lives here, not in `ChatInput`, because the header's new-chat button clears it
-- `theme`, `language` — from `useSettings()`. `language` changes interface text only, never how
+- `sessionId`: lives here, not in `ChatInput`, because the header's new-chat button clears it
+- `theme`, `language`: from `useSettings()`. `language` changes interface text only, never how
   the model answers (it answers in the language of the question).
-- `config` — fetched once from `/config.json` via `loadConfig()` (`src/config.ts`); gates rendering behind `LoadingScreen`/`ConfigErrorScreen` until resolved
-- `infoOpen`, `newChatOpen` — dialog state
+- `config`: fetched once from `/config.json` via `loadConfig()` (`src/config.ts`); gates rendering behind `LoadingScreen`/`ConfigErrorScreen` until resolved
+- `infoOpen`, `newChatOpen`: dialog state
+
+`App` returns early for `configError` and `!config`, so every new hook goes above those `return`s.
 
 **Settings storage.** `theme` (`system`/`light`/`dark`) and `ui-language` (`TR`/`EN`) in
 `localStorage`. An inline script in `index.html` reads both before the bundle loads, so a dark
@@ -86,11 +96,11 @@ them.
 
 One backend: the FastAPI service in `../hacettepe-ai-backend`, fronted by the same CloudFront
 distribution that serves this SPA. `/chat` and `/feedback` are therefore **same-origin paths**,
-not absolute URLs — no CORS preflight anywhere. Paths come from `/config.json` as `chatUrl` and
+not absolute URLs, so there is no CORS preflight anywhere. Paths come from `/config.json` as `chatUrl` and
 `feedbackUrl`, passed to `ChatInput.tsx` and (via `ChatConversations` → `ChatMessage`) to
 `FeedbackModal.tsx`.
 
-### Chat — `POST {chatUrl}`
+### Chat: `POST {chatUrl}`
 
 Request: `{ message, session_id? }`. `session_id` is omitted on the first question of a
 conversation; the server mints one and returns it in the stream's first event.
@@ -103,12 +113,12 @@ Response: **NDJSON**, one JSON object per line, `Content-Type: application/x-ndj
 | `session` | `session_id` | store in state + `localStorage`; sent first, before any model work |
 | `status` | `message` (English) | store raw; `ChatMessage` shows it via `describeStatus` (`src/statusText.ts`): localized text, plus that step's icon in place of the deer |
 | `token` | `text` | **append** to the accumulated answer, clear `isPlaceholder` |
-| `discard` | — | drop every token so far; back to `isPlaceholder` with the last status |
+| `discard` | none | drop every token so far; back to `isPlaceholder` with the last status |
 | `sources` | `sources`, `citations` | store both on the message; bubbles render once the reveal completes. Sent after the last `token`, before `done`; both lists empty when nothing is cited |
 | `done` | `timestamp?` | store as the feedback key; absent when the server's write failed |
-| `error` | `message` | show it in place of the placeholder; do not throw |
+| `error` | `message` | show a localized error based on the current language; log the original server error with `console.error`; do not throw |
 
-Two framing details in the reader are load-bearing. `buffer = lines.pop()` holds back the
+Two framing details in the reader must stay. `buffer = lines.pop()` holds back the
 trailing fragment, because chunk boundaries land wherever TCP puts them rather than on newlines.
 `decoder.decode(value, { stream: true })` does the same for an incomplete UTF-8 sequence, which
 Turkish text hits routinely.
@@ -116,85 +126,59 @@ Turkish text hits routinely.
 `token` appends rather than assigns: the backend emits one event per text delta, a few hundred
 per answer (`app/agent/loop.py`).
 
-Those events still do not reach the browser perfectly evenly, and `useSmoothedText` absorbs the
-unevenness by keeping the text the server has sent apart from the text on screen and closing
-the gap on a 33ms timer. It fixes jitter, not absence. While the backend's guardrail ran in
-`streamProcessingMode: "sync"` a 2001-character answer arrived in three bursts with a 6.18s
-silence in the middle, and no reveal rate can spread three characters across six seconds — the
-smoother looked broken and the guardrail was the cause. Backend 0.6.0 moved to `async`: ~38
-arrival points about 0.3s apart for a 2028-character answer, which is the input this hook was
-designed for.
+When the backend's tool loop runs out of turns it sends one `token`, the English "I don't have
+information on that." (`FALLBACK_MESSAGE`), whatever language was asked, then empty `sources` and
+`done` (backend #45). `ChatInput` swaps that exact string for `NO_INFORMATION_MESSAGE[language]`.
+It follows the UI language, not the question's, so an English UI with a Turkish question still
+shows English. The match is on the backend's exact wording: if the backend rewords it, the swap
+stops working without an error. Remove both once #45 is fixed.
 
-`CATCH_UP_DIVISOR = 10` suits that pace. At ~60 characters every 0.3s the displayed text
-settles about 60 characters behind, a third of a second, and the reveal stays continuous.
+Those events still do not reach the browser evenly. `useSmoothedText` keeps the text the server
+has sent apart from the text on screen and closes the gap on a 33ms timer (`CATCH_UP_DIVISOR = 10`).
+It fixes jitter and cannot fill a long silence, because no reveal rate can spread a few characters
+across seconds. The measurements behind the rate are in `docs/stream-protocol.md`.
 
-`discard` exists because the model sometimes narrates before calling a tool, and those words
-are streamed before anything reveals a tool call is coming (`app/streaming.py` in the backend
-spells out why they cannot be withheld). The client drops them and returns to the status line.
-`lastStatus` is kept in `sendPrompt`'s closure for exactly this: the `token` handler nulls
-`status`, so without it the bubble would fall back to the cycling placeholder for the moment
-before the next status event lands.
-Whether preamble should stay visible instead, interleaved the way Claude.ai shows it, is open
-as #22; change neither side of `discard` without settling that first.
+`discard` exists because the model sometimes narrates before calling a tool, and the client drops
+those words and returns to the status line (`lastStatus` in `sendPrompt`'s closure keeps the bubble
+from falling back to the placeholder meanwhile). Whether preamble should stay visible instead is
+open as #22: change neither side of `discard` without settling that first. Why the words cannot
+be withheld: `docs/stream-protocol.md`.
 
 ### Source bubbles
 
-`sources[].n` is the number on a bubble; `kind` is `webpage`, `document` or `live` (a page
-fetched during this answer, drawn in `primary`). `citations[].offset` is where a cited passage
-ends in the concatenated token text, in UTF-16 units. remark's node positions index the same
-string, so `placeCitations` (`src/citations.ts`) maps each offset straight onto the paragraph,
-heading or table cell containing it and appends one bubble group at that block's end. An offset
-in a gap goes to the block before it, and a source with no citation entry (an uncited live
-fetch) goes on the last block. A list item's text is a paragraph in mdast, so list items need
-no case of their own.
-
-The plugin is added only once `isTypingComplete`, the feedback button's gate: the offsets index
-the full answer, and on a partly revealed prefix they would land on the wrong blocks. Answers
-from before 3.2.0 have no `sources` and show no bubbles.
-
-Each bubble is a link inside a Radix HoverCard. Mouse: hover previews, a click opens the
-source. Keyboard: focus previews, Enter opens. Touch: the first tap previews (the click is
-`preventDefault`ed when the preceding `pointerdown` was touch) and the card itself is the link.
-Radix's trigger calls `preventDefault` in a passive touchstart listener, so mobile Chrome logs
-"Unable to preventDefault inside passive event listener"; it is harmless. `.markdown a` is
-unlayered CSS and would beat the bubbles' utilities, so it excludes `.cite`.
+`sources[].n` is the number on a bubble. `citations[].offset` is where a cited passage ends in
+the concatenated token text, in UTF-16 units, and `placeCitations` (`src/citations.ts`) maps it onto
+a block of the answer's Markdown. The plugin is added only once `isTypingComplete`, because the
+offsets index the full answer and a partly revealed prefix would put bubbles on the wrong blocks.
+`.markdown a` is unlayered CSS and would beat the bubbles' utilities, so it excludes `.cite`.
+Placement rules and how a bubble behaves on mouse, keyboard and touch: `docs/stream-protocol.md`.
 
 **Call flow:**
 1. Add human message to history
 2. Add placeholder message with a unique ID (cycling animated loading messages)
 3. `fetch` the stream, then patch that one placeholder repeatedly as events arrive
-4. On `error`, or on any thrown failure, replace the placeholder with a visible message —
-   never leave it cycling
+4. On `error`, replace the placeholder with a localized visible message and log the original server error with `console.error`; on any thrown failure, replace the placeholder with a visible localized message.
+   Never leave it cycling
 
 **Session management:** `session_id` lives in `localStorage` under `session_id`. Cleared by
 "New chat" (header, after `NewChatDialog` confirms). History is replayed server-side from DynamoDB, so the client sends only the new
-question — follow-up questions work without sending prior turns.
+question, so follow-up questions work without sending prior turns.
 
 **Constraints:** Max 30 messages (15 exchanges), below the server's 25-exchange replay window.
 
 ## Feedback System (FeedbackModal.tsx)
 
-- Triggered by the "Geri bildirimde bulun" pill (lucide `MessageSquare` icon) shown on AI messages after the reveal completes
-- Button has a wiggle animation (`feedback-icon-wiggle` CSS class) on appearance
-- Requires `timestamp` to be present on the message
-- Hidden after submission (`feedbackSubmitted` state in ChatMessage)
-- Modal contains:
-  - 5-star rating with half-star support (0.5 increments via left/right half-hover). The row
-    is a `role="slider"`: arrow keys step by 0.5, Home/End jump to 0 and 5
-  - Optional comment textarea
-  - Bilingual TR/EN labels
-- `POST {feedbackUrl}` — the fixed path from `/config.json`, not a per-message URL
-- Request body: `{ session_id, timestamp, feedback_value: 'Positive'|'Negative', rating: 0-10, feedback_reason? }`
-  - `feedback_value`: `'Positive'` if stars ≥ 3, else `'Negative'`
-  - `rating`: stars × 2 (0–5 star scale → 0–10 integer)
-- A non-2xx response raises an error toast. The endpoint answers **404** when
-  `(session_id, timestamp)` matches no stored exchange — aged out under the 180-day TTL, or
-  never written. Thanking the user for a rating that went nowhere is the failure to avoid here.
+The "Geri bildirimde bulun" pill on an AI message opens `FeedbackModal` (a 5-star rating and an
+optional comment) once the reveal completes, and only when the message has a `timestamp`. It
+`POST`s to `feedbackUrl` from `/config.json`. A non-2xx answer raises an error toast, and the
+endpoint answers **404** when `(session_id, timestamp)` matches no stored exchange. Thanking the
+user for a rating that went nowhere is the failure to avoid. Request body, rating scale and modal
+details: `docs/components.md`.
 
 ## Styling
 - Tailwind CSS v4, configured CSS-first: no `tailwind.config.js`; the theme lives in
   `src/index.css`. It builds through `@tailwindcss/postcss`. v4 needs Safari 16.4+,
-  Chrome 111+, Firefox 128+; older browsers get broken styles, not degraded ones.
+  Chrome 111+, Firefox 128+; older browsers get broken styles with no graceful degradation.
 - Colors are roles, shadcn-named, each defined twice in `index.css`: under `:root` (light) and
   `.dark`. Components use the role (`bg-background`, `text-muted-foreground`, `bg-primary`),
   never a hex value. `--color-*: initial` in `@theme inline` removes Tailwind's palette, so
@@ -213,7 +197,8 @@ question — follow-up questions work without sending prior turns.
   elements by class (`.markdown a:not(.cite)`) rather than fighting them with utilities.
 - Scrollbar: global in `@layer base`, thin, thumb `--scrollbar`, no track.
 - `feedback-icon-wiggle`: one-shot damped rotation (8° → 6° → 3°) on feedback button
-  appearance. `animate-breathe` pulses the deer while an answer is pending. Both respect
+  appearance. `animate-breathe` pulses the deer while an answer is pending. `example-chip` fades
+  and lifts each example question in, staggered by its `--chip-delay`. All three respect
   `prefers-reduced-motion`.
 
 ## shadcn/ui
@@ -221,16 +206,12 @@ question — follow-up questions work without sending prior turns.
 the files are ours to edit. Style `radix-nova`, primitives from the `radix-ui` package, icons
 from `lucide-react`, class merging from `cn` (shadcn's own package).
 
-shadcn now generates for React 19, where `ref` is an ordinary prop. On React 18 a plain function
-component drops it, so a generated component used as a Radix `asChild` trigger never passes
-its DOM node up, and the popover or tooltip it opens stays unpositioned at
-`translate(0, -200%)`, off-screen. A wrapper that Radix clones a ref onto fails the same way,
-with a dev-only "Function components cannot be given refs" warning: `DialogOverlay` inside the
-portal, or `PopoverTrigger` nested in `TooltipTrigger asChild`. Wrapped in `React.forwardRef`
-so far: `Button`, `PopoverTrigger`, `TooltipTrigger`, `DialogTrigger`, `DialogClose`,
-`DialogOverlay`, `HoverCardTrigger`. Do the same to any new wrapper in one of those positions,
-re-apply after `shadcn add --overwrite`, and check the dev server's console, since production
-builds are silent about it.
+shadcn now generates for React 19, where `ref` is an ordinary prop, so on React 18 a plain function
+component drops it. A generated component used as a Radix `asChild` trigger then never passes its
+DOM node up, and the popover or tooltip it opens stays off-screen. Wrap such a component in
+`React.forwardRef`, re-apply that after `shadcn add --overwrite`, and check the dev server's
+console, since production builds are silent about it. Which ones are wrapped, and how the failure
+looks: `docs/components.md`.
 
 Radix behavior questions (what opens on focus or touch, what counts as "outside") are answered
 fastest by `node_modules/@radix-ui/react-<name>/dist/index.mjs`.
@@ -250,7 +231,7 @@ variant helpers beside components the way upstream does.
 
 ## Runtime Config (`/config.json`)
 API paths come from `public/config.json` (dev) or a CDK-deployed `config.json` (CloudFront),
-fetched via `src/config.ts`'s `loadConfig()` — **not** Vite env vars (removed; `.env`'s
+fetched via `src/config.ts`'s `loadConfig()`, **not** Vite env vars (removed; `.env`'s
 `VITE_*` keys are no longer read anywhere).
 ```
 { "chatUrl": "/chat", "feedbackUrl": "/feedback" }
@@ -261,7 +242,7 @@ Three copies of this file exist, and **one lives in the other repo**:
 |---|---|
 | `public/config.json` | client (dev) |
 | `config.example.json` | client (reference) |
-| `infra/frontend/config/config.json` | **backend** — this is the one deployed users receive |
+| `infra/frontend/config/config.json` | **backend**, the one deployed users receive |
 
 The backend copy is uploaded by `HacettepeAiFrontendStack` from a directory outside the Vite
 build, so changing it needs a re-upload but no frontend rebuild. Miss it and the deployed SPA
@@ -277,8 +258,11 @@ npm run build    # type-check (tsc), then production build; a type error fails i
 npm run typecheck # tsc alone
 npm run preview  # preview production build
 npm run lint     # ESLint
+npm run format   # Prettier, rewrites src, scripts and the two config files
+npm run format:check  # the same, but only reports; CI runs it
 npm run check:smoothing  # reveal math (scripts/check-smoothing.mjs); see Testing
 npm run check:citations  # bubble placement (scripts/check-citations.mjs); see Testing
+npm run check:example-questions  # example question pools and the draw (scripts/check-example-questions.mjs); see Testing
 ```
 
 `npm run lint` passes with zero problems; treat any new one as a regression. `react/prop-types`
@@ -315,23 +299,19 @@ which is enough because the pieces worth checking have no DOM in them:
   mdast from the parser react-markdown uses (`mdast-util-from-markdown` + gfm, devDependencies
   for this script only). Covers the paragraph-end boundary, gaps, nested lists, table cells,
   uncited sources and an emoji before an offset.
-- The NDJSON stream reader was proven the same way, against 1-byte chunks — which splits every
+- `npm run check:example-questions` → `scripts/check-example-questions.mjs`, running `pickRandom` from
+  `src/exampleQuestions.ts` over seeded draws. It fails on a repeated entry in one draw, a pool that
+  is reordered or skewed, and any pool entry containing "Placeholder" or "Yer tutucu". It cannot say
+  whether a question gets a good answer. Only sending it to `/chat` shows that.
+- The NDJSON stream reader was proven the same way, against 1-byte chunks, which splits every
   line and every multi-byte UTF-8 character.
-- Wire behavior → a mock NDJSON server on `:8000` + `curl -sN | while read` with per-line
-  timestamps. Exercises the dev proxy and proves streaming is unbuffered, with no AWS.
-- When a real backend already holds `:8000`, do not kill it. Run the mock on another port and
-  point a scratch Vite config at it (spread `vite.config.js`, override `preview.port` and
-  `preview.proxy`), then `npx vite preview --config <scratch>.mjs`.
-- Visual parity → `git worktree add` the previous commit, `npm ci && npm run build` there, serve
-  both builds with `vite preview` on two ports, and screenshot them with Playwright. `preview`
-  inherits `server.proxy`, so the same `:8000` mock drives a full streamed answer in both.
-  Wait ~600ms after focusing a button: `transition-all` fades the focus ring in.
-- Touch behavior → Playwright `newContext({ hasTouch: true, isMobile: true })` and
-  `locator.tap()`. A link opened from the sandbox lands on `chrome-error://`: the tab opened,
-  the external host is just unreachable.
+- Anything that has to be seen in a browser (layout, animation, streaming, touch, a comparison
+  with the previous commit) is the `verify-ui-visually` skill, `.claude/skills/verify-ui-visually/`.
+  It runs a mock `/chat` and a scratch build on spare ports, so it needs no AWS and leaves `dist/`
+  and a real backend on `:8000` alone.
 
 ## Deploy
-Runs from `../hacettepe-ai-backend/infra`, which reads this repo's `dist/` — `npm run build` first.
+Runs from `../hacettepe-ai-backend/infra`, which reads this repo's `dist/`, so run `npm run build` first.
 ```bash
 cd ../hacettepe-ai-backend/infra && set -a && . ../.env && set +a && . .venv/bin/activate
 npx --yes aws-cdk@2.1142.0 deploy HacettepeAiFrontendStack
@@ -340,12 +320,12 @@ Both the `.env` source and the venv activation must be in the same shell as `npx
 runs bare `python app.py`, which exists only inside `.venv`; and synth builds *both* stacks,
 so `ORIGIN_VERIFY_SECRET` and `BUDGET_ALERT_EMAIL` are required even for a frontend-only deploy.
 
-The CLI version is the backend's pin, not this repo's: its CLAUDE.md pairs CLI 2.1142.0 with
+The backend pins the CLI version. Its CLAUDE.md pairs CLI 2.1142.0 with
 `aws-cdk-lib` 2.270.0 (`infra/requirements.txt`) as a verified combination. A floating
 `aws-cdk@2` runs an untested pair against both stacks. When the backend bumps the pin, change
 it here too.
 
-`cdk deploy` bundles the **working tree**, not a git ref — what is deployed and what is
+`cdk deploy` bundles the **working tree** (not a git ref), so what is deployed and what is
 committed can diverge silently.
 
 **Identifying a live build.** `package.json`'s version is substituted into the bundle at build
@@ -358,15 +338,19 @@ building, or two different builds report the same version. The hashed asset file
 `git describe` on `dev` finds no tag. Read the current version from `package.json` or
 `git tag --sort=-creatordate`. After the merge, merge `main` back into `dev` and push, or the
 next PR is refused as "Head branch is out of date".
+GitHub closes an issue only when a closing keyword reaches `main`, so the release PR body lists
+`Closes #N` for each issue fixed on `dev`.
 
 ## Claude Code Hooks (`.claude/settings.json`)
-- Any Edit/Write to `.ts`/`.tsx`/`.js`/`.jsx` auto-runs `eslint --fix` afterward — no need to manually re-lint a file you just edited.
-- Edits to `.env`/`.env.*` are blocked by a PreToolUse hook — ask the user to change it. The file is vestigial: nothing in `src/` reads `VITE_*`, and the hook's own message ("holds live backend URLs") is out of date.
+- Any Edit/Write to `.ts`/`.tsx`/`.js`/`.jsx` auto-runs `eslint --fix` and then `prettier --write` afterward, so there is no need to re-lint or reformat a file you just edited.
+- Edits to `.env`/`.env.*` are blocked by a PreToolUse hook, so ask the user to change it. The file is vestigial: nothing in `src/` reads `VITE_*`, and the hook's own message ("holds live backend URLs") is out of date.
 
 ## Notable Conventions
 - All components are functional with hooks
-- Semicolons are mostly omitted; `ChatInput.tsx` and `ChatConversations.tsx` are mixed.
-  Match the file you are editing — ESLint enforces neither.
+- Prettier owns layout (`.prettierrc.json`: no semicolons, single quotes, 4 spaces, width 110; 2 spaces
+  for CSS and JSON). `src/components/ui/` is excluded, because `shadcn add` regenerates it in its own
+  style. The one reformat commit is listed in `.git-blame-ignore-revs`; run
+  `git config blame.ignoreRevsFile .git-blame-ignore-revs` for local blame (GitHub reads it itself).
 - Two ways text reaches the screen:
   - **Streamed answers**: `src/hooks/useSmoothedText.ts`, revealing toward whatever the server
     has sent so far.
@@ -383,12 +367,15 @@ next PR is refused as "Head branch is out of date".
   holds only `'Düşünüyor...'`, because it runs on a timer with no connection to the backend and can
   only honestly claim the question was sent. It previously also cycled
   `'🦌 Hacettepe kaynakları taranıyor...'` and `'🧑‍🍳 Cevap üretiliyor...'`, which named states the
-  server reports for real — so it regularly announced "generating the answer" while the model
+  server reports for real, so it regularly announced "generating the answer" while the model
   was still searching. Covers roughly the first 5s, until the first `status` event takes over.
 - No `dangerouslySetInnerHTML` anywhere; `InfoModal.tsx` keeps its text as paragraph arrays
-- No routing — single view SPA
+- No routing: single view SPA
 - The shell is zsh: an unquoted `$files` is one argument, not a list, and `$PIPESTATUS` does not
   exist. Loop explicitly or pass paths to `git restore --source=HEAD -- <paths>`; never pair
   a deleting step with a restoring step that relies on word-splitting.
 - Stop background servers by PID (`pgrep -af <pattern>`, then `kill <pid>`), never
   `pkill -f <pattern>`: the pattern also matches the tool's own shell and kills the command.
+  `pgrep -f` inside `kill $(...)` has the same flaw. Find the PID by port instead:
+  `ss -ltnp | grep ":<port> "`.
+- zsh errors on an unmatched glob, so quote them: `grep --include='*.py'`.

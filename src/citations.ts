@@ -68,7 +68,7 @@ export const placeCitations = (tree: Root, sources: Source[], citations: Citatio
     collectAnchors(tree, anchors)
     if (anchors.length === 0 || sources.length === 0) return
 
-    const known = new Set(sources.map(source => source.n))
+    const known = new Set(sources.map((source) => source.n))
     const byAnchor = new Map<Anchor, Set<number>>()
     const add = (anchor: Anchor, ns: number[]) => {
         const set = byAnchor.get(anchor) ?? new Set()
@@ -80,8 +80,11 @@ export const placeCitations = (tree: Root, sources: Source[], citations: Citatio
     // A page the model fetched but did not cite still informed the answer (a date it checked,
     // say), so the backend lists it with no citation entry. The last block is the closest thing
     // to "this whole answer".
-    const cited = new Set(citations.flatMap(citation => citation.n))
-    add(anchors[anchors.length - 1], sources.map(source => source.n).filter(n => !cited.has(n)))
+    const cited = new Set(citations.flatMap((citation) => citation.n))
+    add(
+        anchors[anchors.length - 1],
+        sources.map((source) => source.n).filter((n) => !cited.has(n)),
+    )
 
     for (const [anchor, set] of byAnchor) {
         if (set.size === 0) continue
@@ -94,5 +97,5 @@ export const placeCitations = (tree: Root, sources: Source[], citations: Citatio
 }
 
 /** The remark plugin form of placeCitations, for ReactMarkdown's remarkPlugins. */
-export const remarkCitations = (sources: Source[], citations: Citation[]) => () =>
-    (tree: Root) => placeCitations(tree, sources, citations)
+export const remarkCitations = (sources: Source[], citations: Citation[]) => () => (tree: Root) =>
+    placeCitations(tree, sources, citations)

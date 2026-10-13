@@ -2,7 +2,14 @@ import { useState } from 'react'
 import { FaStar, FaStarHalfStroke } from 'react-icons/fa6'
 import { toast } from 'react-toastify'
 import { Button } from '@/components/ui/button'
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog'
 import { Textarea } from '@/components/ui/textarea'
 import type { Language } from '../types'
 
@@ -16,7 +23,14 @@ interface FeedbackModalProps {
     language: Language
 }
 
-const FeedbackModal = ({ open, onClose, timestamp, session_id, feedbackUrl, language }: FeedbackModalProps) => {
+const FeedbackModal = ({
+    open,
+    onClose,
+    timestamp,
+    session_id,
+    feedbackUrl,
+    language,
+}: FeedbackModalProps) => {
     const [rating, setRating] = useState(0)
     const [hoverRating, setHoverRating] = useState(0)
     const [comment, setComment] = useState('')
@@ -36,8 +50,8 @@ const FeedbackModal = ({ open, onClose, timestamp, session_id, feedbackUrl, lang
                     timestamp,
                     feedback_value: rating >= 3 ? 'Positive' : 'Negative',
                     rating: Math.round(rating * 2),
-                    ...(comment && { feedback_reason: comment })
-                })
+                    ...(comment && { feedback_reason: comment }),
+                }),
             })
             // The endpoint answers 404 when (session_id, timestamp) matches no stored exchange
             // — the row aged out under the 180-day TTL, or was never written. Thanking the user
@@ -47,15 +61,16 @@ const FeedbackModal = ({ open, onClose, timestamp, session_id, feedbackUrl, lang
             }
             toast.success(
                 language === 'TR' ? 'Geri bildiriminiz için teşekkürler!' : 'Thank you for your feedback!',
-                { position: 'top-left', autoClose: 3000, className: 'custom-toast' }
+                { position: 'top-left', autoClose: 3000, className: 'custom-toast' },
             )
             onClose(true)
         } catch (err) {
             console.error('Feedback error:', err)
-            toast.error(
-                language === 'TR' ? 'Geri bildirim gönderilemedi.' : 'Could not send feedback.',
-                { position: 'top-left', autoClose: 3000, className: 'custom-toast' }
-            )
+            toast.error(language === 'TR' ? 'Geri bildirim gönderilemedi.' : 'Could not send feedback.', {
+                position: 'top-left',
+                autoClose: 3000,
+                className: 'custom-toast',
+            })
             onClose(false)
         } finally {
             setSubmitting(false)
@@ -65,7 +80,12 @@ const FeedbackModal = ({ open, onClose, timestamp, session_id, feedbackUrl, lang
     const tr = language === 'TR'
 
     return (
-        <Dialog open={open} onOpenChange={(isOpen) => { if (!isOpen) onClose(false) }}>
+        <Dialog
+            open={open}
+            onOpenChange={(isOpen) => {
+                if (!isOpen) onClose(false)
+            }}
+        >
             <DialogContent closeLabel={tr ? 'Kapat' : 'Close'} className="gap-5 p-5 sm:max-w-md">
                 <DialogHeader>
                     <DialogTitle>{tr ? 'Geri bildirim' : 'Feedback'}</DialogTitle>
@@ -84,9 +104,14 @@ const FeedbackModal = ({ open, onClose, timestamp, session_id, feedbackUrl, lang
                     aria-valuemax={5}
                     aria-valuenow={rating}
                     aria-valuetext={`${rating} / 5`}
-                    onKeyDown={e => {
-                        const step: Record<string, number> = { ArrowRight: 0.5, ArrowUp: 0.5, ArrowLeft: -0.5, ArrowDown: -0.5 }
-                        if (e.key in step) setRating(r => Math.min(5, Math.max(0, r + step[e.key])))
+                    onKeyDown={(e) => {
+                        const step: Record<string, number> = {
+                            ArrowRight: 0.5,
+                            ArrowUp: 0.5,
+                            ArrowLeft: -0.5,
+                            ArrowDown: -0.5,
+                        }
+                        if (e.key in step) setRating((r) => Math.min(5, Math.max(0, r + step[e.key])))
                         else if (e.key === 'Home') setRating(0)
                         else if (e.key === 'End') setRating(5)
                         else return
@@ -95,7 +120,7 @@ const FeedbackModal = ({ open, onClose, timestamp, session_id, feedbackUrl, lang
                     className="flex w-fit gap-1 rounded-md outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
                     onMouseLeave={() => setHoverRating(0)}
                 >
-                    {[1, 2, 3, 4, 5].map(star => (
+                    {[1, 2, 3, 4, 5].map((star) => (
                         <div key={star} className="relative size-8 cursor-pointer text-[28px]">
                             {/* Left half triggers half-star */}
                             <div
@@ -109,19 +134,20 @@ const FeedbackModal = ({ open, onClose, timestamp, session_id, feedbackUrl, lang
                                 onMouseEnter={() => setHoverRating(star)}
                                 onClick={() => setRating(star)}
                             />
-                            {activeRating >= star
-                                ? <FaStar className="text-star" />
-                                : activeRating >= star - 0.5
-                                ? <FaStarHalfStroke className="text-star" />
-                                : <FaStar className="text-border" />
-                            }
+                            {activeRating >= star ? (
+                                <FaStar className="text-star" />
+                            ) : activeRating >= star - 0.5 ? (
+                                <FaStarHalfStroke className="text-star" />
+                            ) : (
+                                <FaStar className="text-border" />
+                            )}
                         </div>
                     ))}
                 </div>
 
                 <Textarea
                     value={comment}
-                    onChange={e => setComment(e.target.value)}
+                    onChange={(e) => setComment(e.target.value)}
                     placeholder={tr ? 'Yorumunuz (isteğe bağlı)' : 'Your comment (optional)'}
                     rows={3}
                     className="min-h-20 resize-none bg-muted text-sm dark:bg-muted"
@@ -132,10 +158,7 @@ const FeedbackModal = ({ open, onClose, timestamp, session_id, feedbackUrl, lang
                         {tr ? 'İptal' : 'Cancel'}
                     </Button>
                     <Button onClick={handleSubmit} disabled={rating === 0 || submitting}>
-                        {submitting
-                            ? (tr ? 'Gönderiliyor...' : 'Sending...')
-                            : (tr ? 'Gönder' : 'Submit')
-                        }
+                        {submitting ? (tr ? 'Gönderiliyor...' : 'Sending...') : tr ? 'Gönder' : 'Submit'}
                     </Button>
                 </DialogFooter>
             </DialogContent>

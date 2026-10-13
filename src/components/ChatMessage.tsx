@@ -33,12 +33,26 @@ const citationSpan = (sources: NonNullable<Message['sources']>, language: Langua
         return <CitationBubbles numbers={cite.split(',').map(Number)} sources={sources} language={language} />
     }
 
-type ChatMessageProps = Pick<Message, 'sender' | 'message' | 'isPlaceholder' | 'status' | 'timestamp' | 'session_id' | 'sources' | 'citations'> & {
+type ChatMessageProps = Pick<
+    Message,
+    'sender' | 'message' | 'isPlaceholder' | 'status' | 'timestamp' | 'session_id' | 'sources' | 'citations'
+> & {
     feedbackUrl: string
     language: Language
 }
 
-const ChatMessage = ({ sender, message, isPlaceholder, status, timestamp, session_id, sources, citations, feedbackUrl, language }: ChatMessageProps) => {
+const ChatMessage = ({
+    sender,
+    message,
+    isPlaceholder,
+    status,
+    timestamp,
+    session_id,
+    sources,
+    citations,
+    feedbackUrl,
+    language,
+}: ChatMessageProps) => {
     const cyclingMsg = useCyclingText(LOADING_MESSAGES[language])
     // Streamed answers animate toward the text received so far; history and human turns show
     // at once. The smoother tells them apart by whether the text grew after mounting.
@@ -50,18 +64,19 @@ const ChatMessage = ({ sender, message, isPlaceholder, status, timestamp, sessio
     // Holds the feedback button back until the text has finished revealing, rather than letting
     // it appear on the `done` event while the smoother is still catching up.
     const isTypingComplete = displayedMsg === message
-    const showFeedbackButton = sender === 'AI' && !isPlaceholder && isTypingComplete && timestamp && !feedbackSubmitted
+    const showFeedbackButton =
+        sender === 'AI' && !isPlaceholder && isTypingComplete && timestamp && !feedbackSubmitted
     // Offsets index the full answer, so bubbles wait for the reveal to finish, like the feedback
     // button: added to a partly revealed prefix, they would land on the wrong paragraphs. Memoized
     // so a finished answer's bubbles keep their identity, and an open card its state, when
     // ChatConversations re-renders for a later message.
     const showCitations = sender === 'AI' && !isPlaceholder && isTypingComplete && !!sources?.length
     const remarkPlugins = useMemo(
-        () => showCitations ? [remarkGfm, remarkCitations(sources!, citations ?? [])] : [remarkGfm],
+        () => (showCitations ? [remarkGfm, remarkCitations(sources!, citations ?? [])] : [remarkGfm]),
         [showCitations, sources, citations],
     )
     const components = useMemo<Components | undefined>(
-        () => showCitations ? { span: citationSpan(sources!, language) } : undefined,
+        () => (showCitations ? { span: citationSpan(sources!, language) } : undefined),
         [showCitations, sources, language],
     )
     // Before the first status the placeholder only knows the question was sent, so the deer
@@ -79,14 +94,24 @@ const ChatMessage = ({ sender, message, isPlaceholder, status, timestamp, sessio
 
     return (
         <div className="flex items-start gap-3">
-            {isPlaceholder && PendingIcon
-                ? <PendingIcon aria-hidden="true" strokeWidth={1.7} className="mt-0.5 size-6 shrink-0 animate-breathe p-0.5 text-muted-foreground" />
-                : <DeerMark className={`mt-0.5 size-6 shrink-0 ${isPlaceholder ? 'animate-breathe text-muted-foreground' : 'text-primary'}`} />}
+            {isPlaceholder && PendingIcon ? (
+                <PendingIcon
+                    aria-hidden="true"
+                    strokeWidth={1.7}
+                    className="mt-0.5 size-6 shrink-0 animate-breathe p-0.5 text-muted-foreground"
+                />
+            ) : (
+                <DeerMark
+                    className={`mt-0.5 size-6 shrink-0 ${isPlaceholder ? 'animate-breathe text-muted-foreground' : 'text-primary'}`}
+                />
+            )}
             <div className="flex min-w-0 flex-1 flex-col items-start">
                 {isPlaceholder ? (
                     // The cycling animation covers the seconds before the backend reports what it
                     // is actually doing; a real status event takes over from there.
-                    <p className="text-muted-foreground" aria-live="polite">{pending?.text ?? cyclingMsg}</p>
+                    <p className="text-muted-foreground" aria-live="polite">
+                        {pending?.text ?? cyclingMsg}
+                    </p>
                 ) : (
                     <div className="markdown w-full">
                         <ReactMarkdown remarkPlugins={remarkPlugins} components={components}>

@@ -15,10 +15,24 @@ interface HeaderProps {
     onInfoClick: () => void
 }
 
-const IconButton = ({ label, onClick, children }: { label: string; onClick: () => void; children: ReactNode }) => (
+const IconButton = ({
+    label,
+    onClick,
+    children,
+}: {
+    label: string
+    onClick: () => void
+    children: ReactNode
+}) => (
     <Tooltip>
         <TooltipTrigger asChild>
-            <Button variant="ghost" size="icon" aria-label={label} onClick={onClick} className="size-10 text-muted-foreground">
+            <Button
+                variant="ghost"
+                size="icon"
+                aria-label={label}
+                onClick={onClick}
+                className="size-10 text-muted-foreground"
+            >
                 {children}
             </Button>
         </TooltipTrigger>
@@ -41,7 +55,12 @@ const Header = ({ language, setLanguage, theme, setTheme, hasChat, onNewChat, on
                         <Plus className="size-5" />
                     </IconButton>
                 )}
-                <SettingsMenu theme={theme} setTheme={setTheme} language={language} setLanguage={setLanguage} />
+                <SettingsMenu
+                    theme={theme}
+                    setTheme={setTheme}
+                    language={language}
+                    setLanguage={setLanguage}
+                />
                 <IconButton label={tr ? 'Hakkında' : 'About'} onClick={onInfoClick}>
                     <Info className="size-5" />
                 </IconButton>

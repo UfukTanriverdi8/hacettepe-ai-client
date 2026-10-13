@@ -17,19 +17,19 @@ const backend = 'http://localhost:8000'
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  plugins: [react()],
-  resolve: {
-    alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
-  },
-  // Textual replacement, so the value has to arrive as a JSON string literal.
-  define: {
-    __APP_VERSION__: JSON.stringify(pkg.version),
-  },
-  server: {
-    proxy: {
-      '/chat': backend,
-      '/healthz': backend,
-      '/feedback': backend,
+    plugins: [react()],
+    resolve: {
+        alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
     },
-  },
+    // Textual replacement, so the value has to arrive as a JSON string literal.
+    define: {
+        __APP_VERSION__: JSON.stringify(pkg.version),
+    },
+    server: {
+        proxy: {
+            '/chat': backend,
+            '/healthz': backend,
+            '/feedback': backend,
+        },
+    },
 })
