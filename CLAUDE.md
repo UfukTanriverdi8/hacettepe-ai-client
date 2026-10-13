@@ -5,7 +5,7 @@ Never add a "Co-Authored-By: Claude..." line or any other self-attribution to co
 
 Work lands on `dev`, then a PR to `main` (the default branch). Never commit to `main` directly.
 CI (`.github/workflows/ci.yml`) runs on pushes and PRs to `dev` and `main`: `npm ci`, lint, typecheck,
-build, `check:smoothing` and `check:citations`, on Node 24. It has no secrets and reads nothing from AWS.
+build, `check:smoothing`, `check:citations` and `check:example-questions`, on Node 24. It has no secrets and reads nothing from AWS.
 It runs the same commands as Dev Commands below, so a green local run predicts a green PR.
 Write PR bodies to `.github/PULL_REQUEST_TEMPLATE.md`'s sections.
 
@@ -19,7 +19,7 @@ fronts the backend Lambda on the same distribution.
 
 ### Component Tree
 ```
-App.tsx                         # Root: global state, layout, the empty-chat greeting
+App.tsx                         # Root: global state, layout, the empty-chat greeting and example chips
 ├── LoadingScreen.tsx            # Shown while /config.json is loading
 ├── ConfigErrorScreen.tsx        # Shown if /config.json fails to load (manual retry)
 ├── Header.tsx                  # Wordmark; new chat, settings and info buttons
@@ -28,7 +28,7 @@ App.tsx                         # Root: global state, layout, the empty-chat gre
 │   └── ChatMessage.tsx         # Question pill or answer; streamed answers go through useSmoothedText
 │       ├── CitationBubbles.tsx # Numbered source bubbles, each with a HoverCard preview
 │       └── FeedbackModal.tsx   # 5-star feedback dialog (shown per AI message)
-├── ChatInput.tsx               # The composer: input, send, API calls
+├── ChatInput.tsx               # The composer: input, send, API calls. A forwardRef handle, setValueAndFocus, lets App fill it
 ├── InfoModal.tsx               # About dialog: project text, GitHub link, version
 └── NewChatDialog.tsx           # Confirms clearing the chat and the session
 ```
@@ -46,6 +46,20 @@ Hooks in `src/hooks/`:
 and a lucide icon (`Search`, `Globe`, `BookOpen`). Messages store the raw string and are worded
 at render time, so a language switch mid-answer re-words the line. An unmapped status shows
 raw, with the deer. Add new backend statuses here.
+
+`src/exampleQuestions.ts` holds the example questions on the empty screen, one pool of 10 per
+language. `App.tsx` draws `EXAMPLE_COUNT` (3) from each pool once per page load, and the chips show
+the draw for the current language. English is written for international students and Turkish for
+Turkish students, so the lists are not translations. A chip fills the input through
+`ChatInput`'s `setValueAndFocus` and does not send. It is `disabled` once there is a chat, because
+the collapsed empty state keeps its buttons in the tab order otherwise (`inert` is no option on
+React 18, which does not write a boolean `inert` to the DOM).
+
+Send a question to the deployed `/chat` before adding it, and keep time-bound wording out. On
+2026-10-13 all 20 current questions answered with sources in the question's language. "When does the
+academic year start and end?" returned a stale 2024-2025 calendar every time, and "Bu dönemin
+akademik takvimi nedir?" answered in 2 of 5 runs. Where the agent has nothing it replies "I don't have
+information on that." in English, even to a Turkish question.
 
 ## State Management
 No external state library — all prop-drilled from `App.tsx` with `localStorage` persistence.
@@ -213,7 +227,8 @@ question — follow-up questions work without sending prior turns.
   elements by class (`.markdown a:not(.cite)`) rather than fighting them with utilities.
 - Scrollbar: global in `@layer base`, thin, thumb `--scrollbar`, no track.
 - `feedback-icon-wiggle`: one-shot damped rotation (8° → 6° → 3°) on feedback button
-  appearance. `animate-breathe` pulses the deer while an answer is pending. Both respect
+  appearance. `animate-breathe` pulses the deer while an answer is pending. `example-chip` fades
+  and lifts each example question in, staggered by its `--chip-delay`. All three respect
   `prefers-reduced-motion`.
 
 ## shadcn/ui
@@ -279,6 +294,7 @@ npm run preview  # preview production build
 npm run lint     # ESLint
 npm run check:smoothing  # reveal math (scripts/check-smoothing.mjs); see Testing
 npm run check:citations  # bubble placement (scripts/check-citations.mjs); see Testing
+npm run check:example-questions  # example question pools and the draw (scripts/check-example-questions.mjs); see Testing
 ```
 
 `npm run lint` passes with zero problems; treat any new one as a regression. `react/prop-types`
@@ -315,6 +331,10 @@ which is enough because the pieces worth checking have no DOM in them:
   mdast from the parser react-markdown uses (`mdast-util-from-markdown` + gfm, devDependencies
   for this script only). Covers the paragraph-end boundary, gaps, nested lists, table cells,
   uncited sources and an emoji before an offset.
+- `npm run check:example-questions` → `scripts/check-example-questions.mjs`, running `pickRandom` from
+  `src/exampleQuestions.ts` over seeded draws. It fails on a repeated entry in one draw, a pool that
+  is reordered or skewed, and any pool entry containing "Placeholder" or "Yer tutucu". It cannot say
+  whether a question gets a good answer. Only sending it to `/chat` shows that.
 - The NDJSON stream reader was proven the same way, against 1-byte chunks — which splits every
   line and every multi-byte UTF-8 character.
 - Wire behavior → a mock NDJSON server on `:8000` + `curl -sN | while read` with per-line

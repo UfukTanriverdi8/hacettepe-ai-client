@@ -10,30 +10,23 @@ import { TooltipProvider } from '@/components/ui/tooltip'
 import { loadConfig } from './config'
 import { useSettings } from './hooks/useSettings'
 import { useState, useEffect, useRef } from 'react'
+import type { CSSProperties } from 'react'
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.min.css';
+import { EXAMPLE_COUNT, EXAMPLE_POOL, pickRandom } from './exampleQuestions'
 import type { AppConfig, Message } from './types'
 
-
-const EXAMPLE_QUESTIONS = {
-    EN: [
-        'Placeholder: What is a fictional fact about Hacettepe?',
-        'Placeholder: Can you invent a Hacettepe tradition?',
-        'Placeholder: Describe an imaginary Hacettepe event.',
-        'Placeholder: What would a fictional Hacettepe building look like?',
-    ],
-    TR: [
-        'Yer tutucu: Hacettepe hakkında hayali bir bilgi nedir?',
-        'Yer tutucu: Hayali bir Hacettepe geleneği oluşturabilir misin?',
-        'Yer tutucu: Hayali bir Hacettepe etkinliğini anlatır mısın?',
-        'Yer tutucu: Hayali bir Hacettepe binası nasıl görünürdü?',
-    ],
-}
 const App =  () => {
     const { theme, setTheme, language, setLanguage } = useSettings()
     const [infoOpen, setInfoOpen] = useState(false)
     const [newChatOpen, setNewChatOpen] = useState(false)
     const chatInputRef = useRef<ChatInputHandle>(null)
+    // Both languages are drawn once per page load, so switching the UI language shows that
+    // language's set without reshuffling the chips on every toggle.
+    const [examples] = useState(() => ({
+        EN: pickRandom(EXAMPLE_POOL.EN, EXAMPLE_COUNT),
+        TR: pickRandom(EXAMPLE_POOL.TR, EXAMPLE_COUNT),
+    }))
 
     const [chatHistory, setChatHistory] = useState<Message[]>(() => {
         // Retrieve chat history from localStorage or default to []
@@ -114,13 +107,14 @@ const App =  () => {
                             {tr ? 'Merhaba! Bugün size nasıl yardımcı olabilirim?' : 'Hello! How can I help you today?'}
                         </h2>
                         <div className="flex flex-wrap justify-center gap-2">
-                            {EXAMPLE_QUESTIONS[language].map((question) => (
+                            {examples[language].map((question, i) => (
                                 <button
                                     key={question}
                                     type="button"
                                     disabled={hasChat}
                                     onClick={() => chatInputRef.current?.setValueAndFocus(question)}
-                                    className="rounded-full border px-3 py-2 text-sm transition-colors hover:bg-muted"
+                                    style={{ '--chip-delay': `${200 + i * 90}ms` } as CSSProperties}
+                                    className="example-chip rounded-full border px-3 py-2 text-sm transition-colors hover:bg-muted"
                                 >
                                     {question}
                                 </button>

@@ -11,8 +11,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      # check:smoothing and check:citations import .ts files under Node's built-in type
-      # stripping, which needs Node 22.18 or newer.
+      # The check:* scripts import .ts files under Node's built-in type stripping, which needs
+      # Node 22.18 or newer.
       - uses: actions/setup-node@v7
         with:
           node-version: 24
@@ -24,3 +24,4 @@ jobs:
       - run: npm run build
       - run: npm run check:smoothing
       - run: npm run check:citations
+      - run: npm run check:example-questions
