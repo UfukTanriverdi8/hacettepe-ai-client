@@ -48,19 +48,11 @@ at render time, so a language switch mid-answer re-words the line. An unmapped s
 raw, with the deer. Add new backend statuses here.
 
 `src/exampleQuestions.ts` holds the example questions on the empty screen, one pool of 10 per
-language. `App.tsx` draws `EXAMPLE_COUNT` (3) from each pool once per page load, and the chips show
-the draw for the current language. English is written for international students and Turkish for
-Turkish students, so the lists are not translations. A chip fills the input through
-`ChatInput`'s `setValueAndFocus` and does not send. It is `disabled` once there is a chat, because
-the collapsed empty state keeps its buttons in the tab order otherwise (`inert` is no option on
-React 18, which does not write a boolean `inert` to the DOM).
-Send a question to the deployed `/chat` before adding it, and keep time-bound wording out. 
-When the agent loop uses up its tool iterations it gives up with "I don't have information on that."
-Time-bound questions hit this often.
-What is ingested: `../hacettepe-scraper/docs/subdomain-status.md`, and the live manifest
-`s3://hacettepe-bucket/manifest/departments.json` (read it with `aws s3 cp`). To try a question,
-POST `{"message": ...}` to the deployed site's `/chat` with no `session_id`. Each call runs
-Bedrock and writes an exchange to DynamoDB, so send them one at a time with a pause.
+language. `App.tsx` draws 3 per page load, and a chip fills the input through `ChatInput`'s
+`setValueAndFocus` without sending. The chips are `disabled` once there is a chat, since the
+collapsed empty state keeps its buttons in the tab order (`inert` is no option on React 18).
+Send a question to the deployed `/chat` before adding it. How the pools were chosen, how to test a
+question and what to avoid: `docs/example-questions.md`.
 
 ## State Management
 No external state library — all prop-drilled from `App.tsx` with `localStorage` persistence.
@@ -140,48 +132,25 @@ It follows the UI language, not the question's, so an English UI with a Turkish 
 shows English. The match is on the backend's exact wording: if the backend rewords it, the swap
 stops working without an error. Remove both once #45 is fixed.
 
-Those events still do not reach the browser perfectly evenly, and `useSmoothedText` absorbs the
-unevenness by keeping the text the server has sent apart from the text on screen and closing
-the gap on a 33ms timer. It fixes jitter, not absence. While the backend's guardrail ran in
-`streamProcessingMode: "sync"` a 2001-character answer arrived in three bursts with a 6.18s
-silence in the middle, and no reveal rate can spread three characters across six seconds — the
-smoother looked broken and the guardrail was the cause. Backend 0.6.0 moved to `async`: ~38
-arrival points about 0.3s apart for a 2028-character answer, which is the input this hook was
-designed for.
+Those events still do not reach the browser evenly. `useSmoothedText` keeps the text the server
+has sent apart from the text on screen and closes the gap on a 33ms timer (`CATCH_UP_DIVISOR = 10`).
+It fixes jitter, not absence: no reveal rate can spread a long silence. The measurements behind the
+rate: `docs/stream-protocol.md`.
 
-`CATCH_UP_DIVISOR = 10` suits that pace. At ~60 characters every 0.3s the displayed text
-settles about 60 characters behind, a third of a second, and the reveal stays continuous.
-
-`discard` exists because the model sometimes narrates before calling a tool, and those words
-are streamed before anything reveals a tool call is coming (`app/streaming.py` in the backend
-spells out why they cannot be withheld). The client drops them and returns to the status line.
-`lastStatus` is kept in `sendPrompt`'s closure for exactly this: the `token` handler nulls
-`status`, so without it the bubble would fall back to the cycling placeholder for the moment
-before the next status event lands.
-Whether preamble should stay visible instead, interleaved the way Claude.ai shows it, is open
-as #22; change neither side of `discard` without settling that first.
+`discard` exists because the model sometimes narrates before calling a tool, and the client drops
+those words and returns to the status line (`lastStatus` in `sendPrompt`'s closure keeps the bubble
+from falling back to the placeholder meanwhile). Whether preamble should stay visible instead is
+open as #22: change neither side of `discard` without settling that first. Why the words cannot
+be withheld: `docs/stream-protocol.md`.
 
 ### Source bubbles
 
-`sources[].n` is the number on a bubble; `kind` is `webpage`, `document` or `live` (a page
-fetched during this answer, drawn in `primary`). `citations[].offset` is where a cited passage
-ends in the concatenated token text, in UTF-16 units. remark's node positions index the same
-string, so `placeCitations` (`src/citations.ts`) maps each offset straight onto the paragraph,
-heading or table cell containing it and appends one bubble group at that block's end. An offset
-in a gap goes to the block before it, and a source with no citation entry (an uncited live
-fetch) goes on the last block. A list item's text is a paragraph in mdast, so list items need
-no case of their own.
-
-The plugin is added only once `isTypingComplete`, the feedback button's gate: the offsets index
-the full answer, and on a partly revealed prefix they would land on the wrong blocks. Answers
-from before 3.2.0 have no `sources` and show no bubbles.
-
-Each bubble is a link inside a Radix HoverCard. Mouse: hover previews, a click opens the
-source. Keyboard: focus previews, Enter opens. Touch: the first tap previews (the click is
-`preventDefault`ed when the preceding `pointerdown` was touch) and the card itself is the link.
-Radix's trigger calls `preventDefault` in a passive touchstart listener, so mobile Chrome logs
-"Unable to preventDefault inside passive event listener"; it is harmless. `.markdown a` is
-unlayered CSS and would beat the bubbles' utilities, so it excludes `.cite`.
+`sources[].n` is the number on a bubble. `citations[].offset` is where a cited passage ends in
+the concatenated token text, in UTF-16 units, and `placeCitations` (`src/citations.ts`) maps it onto
+a block of the answer's Markdown. The plugin is added only once `isTypingComplete`, because the
+offsets index the full answer and a partly revealed prefix would put bubbles on the wrong blocks.
+`.markdown a` is unlayered CSS and would beat the bubbles' utilities, so it excludes `.cite`.
+Placement rules and how a bubble behaves on mouse, keyboard and touch: `docs/stream-protocol.md`.
 
 **Call flow:**
 1. Add human message to history
@@ -198,22 +167,12 @@ question — follow-up questions work without sending prior turns.
 
 ## Feedback System (FeedbackModal.tsx)
 
-- Triggered by the "Geri bildirimde bulun" pill (lucide `MessageSquare` icon) shown on AI messages after the reveal completes
-- Button has a wiggle animation (`feedback-icon-wiggle` CSS class) on appearance
-- Requires `timestamp` to be present on the message
-- Hidden after submission (`feedbackSubmitted` state in ChatMessage)
-- Modal contains:
-  - 5-star rating with half-star support (0.5 increments via left/right half-hover). The row
-    is a `role="slider"`: arrow keys step by 0.5, Home/End jump to 0 and 5
-  - Optional comment textarea
-  - Bilingual TR/EN labels
-- `POST {feedbackUrl}` — the fixed path from `/config.json`, not a per-message URL
-- Request body: `{ session_id, timestamp, feedback_value: 'Positive'|'Negative', rating: 0-10, feedback_reason? }`
-  - `feedback_value`: `'Positive'` if stars ≥ 3, else `'Negative'`
-  - `rating`: stars × 2 (0–5 star scale → 0–10 integer)
-- A non-2xx response raises an error toast. The endpoint answers **404** when
-  `(session_id, timestamp)` matches no stored exchange — aged out under the 180-day TTL, or
-  never written. Thanking the user for a rating that went nowhere is the failure to avoid here.
+The "Geri bildirimde bulun" pill on an AI message opens `FeedbackModal` (a 5-star rating and an
+optional comment) once the reveal completes, and only when the message has a `timestamp`. It
+`POST`s to `feedbackUrl` from `/config.json`. A non-2xx answer raises an error toast, and the
+endpoint answers **404** when `(session_id, timestamp)` matches no stored exchange. Thanking the
+user for a rating that went nowhere is the failure to avoid. Request body, rating scale and modal
+details: `docs/components.md`.
 
 ## Styling
 - Tailwind CSS v4, configured CSS-first: no `tailwind.config.js`; the theme lives in
@@ -246,16 +205,12 @@ question — follow-up questions work without sending prior turns.
 the files are ours to edit. Style `radix-nova`, primitives from the `radix-ui` package, icons
 from `lucide-react`, class merging from `cn` (shadcn's own package).
 
-shadcn now generates for React 19, where `ref` is an ordinary prop. On React 18 a plain function
-component drops it, so a generated component used as a Radix `asChild` trigger never passes
-its DOM node up, and the popover or tooltip it opens stays unpositioned at
-`translate(0, -200%)`, off-screen. A wrapper that Radix clones a ref onto fails the same way,
-with a dev-only "Function components cannot be given refs" warning: `DialogOverlay` inside the
-portal, or `PopoverTrigger` nested in `TooltipTrigger asChild`. Wrapped in `React.forwardRef`
-so far: `Button`, `PopoverTrigger`, `TooltipTrigger`, `DialogTrigger`, `DialogClose`,
-`DialogOverlay`, `HoverCardTrigger`. Do the same to any new wrapper in one of those positions,
-re-apply after `shadcn add --overwrite`, and check the dev server's console, since production
-builds are silent about it.
+shadcn now generates for React 19, where `ref` is an ordinary prop, so on React 18 a plain function
+component drops it. A generated component used as a Radix `asChild` trigger then never passes its
+DOM node up, and the popover or tooltip it opens stays off-screen. Wrap such a component in
+`React.forwardRef`, re-apply that after `shadcn add --overwrite`, and check the dev server's
+console, since production builds are silent about it. Which ones are wrapped, and how the failure
+looks: `docs/components.md`.
 
 Radix behavior questions (what opens on focus or touch, what counts as "outside") are answered
 fastest by `node_modules/@radix-ui/react-<name>/dist/index.mjs`.
