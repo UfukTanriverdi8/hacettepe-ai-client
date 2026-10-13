@@ -1,0 +1,3 @@
+# shadcn regenerates these in its own style (double quotes, 2 spaces) on every `shadcn add`,
+# so formatting them here would be undone each time.
+src/components/ui/
