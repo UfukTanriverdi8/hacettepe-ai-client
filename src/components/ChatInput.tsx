@@ -9,6 +9,15 @@ const ERROR_MESSAGE = {
     EN: 'Sorry, something went wrong. Please try again.',
     TR: 'Üzgünüm, bir şeyler ters gitti. Lütfen tekrar deneyin.',
 }
+// The backend's FALLBACK_MESSAGE (app/agent/loop.py), sent as a single token when its tool loop
+// runs out of turns. It is English whatever language the question was in, so an exact match is
+// shown as the interface language's text instead. Drop this once the backend stops sending it
+// (backend #45).
+const BACKEND_FALLBACK = "I don't have information on that."
+const NO_INFORMATION_MESSAGE = {
+    EN: BACKEND_FALLBACK,
+    TR: 'Üzgünüm, bu konuda bir bilgi bulamadım.',
+}
 interface ChatInputProps {
     chatHistory: Message[]
     setChatHistory: Dispatch<SetStateAction<Message[]>>
@@ -99,7 +108,11 @@ const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(({chatHistory, set
                     // answer. ChatMessage smooths the arrival rate, so the lumpiness the
                     // network imposes on these does not reach the screen.
                     answer += event.text
-                    patchAiMessage({ message: answer, isPlaceholder: false, status: null })
+                    patchAiMessage({
+                        message: answer === BACKEND_FALLBACK ? NO_INFORMATION_MESSAGE[language] : answer,
+                        isPlaceholder: false,
+                        status: null,
+                    })
                     break
                 case 'discard':
                     // Everything streamed so far was the model narrating a tool call it was

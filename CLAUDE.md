@@ -1,4 +1,4 @@
-# Hacettepe AI Client - Project Context
+# hacettepe-ai-client - Project Context
 
 ## Git Commits
 Never add a "Co-Authored-By: Claude..." line or any other self-attribution to commit messages.
@@ -54,12 +54,13 @@ Turkish students, so the lists are not translations. A chip fills the input thro
 `ChatInput`'s `setValueAndFocus` and does not send. It is `disabled` once there is a chat, because
 the collapsed empty state keeps its buttons in the tab order otherwise (`inert` is no option on
 React 18, which does not write a boolean `inert` to the DOM).
-
-Send a question to the deployed `/chat` before adding it, and keep time-bound wording out. On
-2026-10-13 all 20 current questions answered with sources in the question's language. "When does the
-academic year start and end?" returned a stale 2024-2025 calendar every time, and "Bu dönemin
-akademik takvimi nedir?" answered in 2 of 5 runs. Where the agent has nothing it replies "I don't have
-information on that." in English, even to a Turkish question.
+Send a question to the deployed `/chat` before adding it, and keep time-bound wording out. 
+When the agent loop uses up its tool iterations it gives up with "I don't have information on that."
+Time-bound questions hit this often.
+What is ingested: `../hacettepe-scraper/docs/subdomain-status.md`, and the live manifest
+`s3://hacettepe-bucket/manifest/departments.json` (read it with `aws s3 cp`). To try a question,
+POST `{"message": ...}` to the deployed site's `/chat` with no `session_id`. Each call runs
+Bedrock and writes an exchange to DynamoDB, so send them one at a time with a pause.
 
 ## State Management
 No external state library — all prop-drilled from `App.tsx` with `localStorage` persistence.
@@ -72,6 +73,8 @@ No external state library — all prop-drilled from `App.tsx` with `localStorage
   the model answers (it answers in the language of the question).
 - `config` — fetched once from `/config.json` via `loadConfig()` (`src/config.ts`); gates rendering behind `LoadingScreen`/`ConfigErrorScreen` until resolved
 - `infoOpen`, `newChatOpen` — dialog state
+
+`App` returns early for `configError` and `!config`, so every new hook goes above those `return`s.
 
 **Settings storage.** `theme` (`system`/`light`/`dark`) and `ui-language` (`TR`/`EN`) in
 `localStorage`. An inline script in `index.html` reads both before the bundle loads, so a dark
@@ -129,6 +132,13 @@ Turkish text hits routinely.
 
 `token` appends rather than assigns: the backend emits one event per text delta, a few hundred
 per answer (`app/agent/loop.py`).
+
+When the backend's tool loop runs out of turns it sends one `token`, the English "I don't have
+information on that." (`FALLBACK_MESSAGE`), whatever language was asked, then empty `sources` and
+`done` (backend #45). `ChatInput` swaps that exact string for `NO_INFORMATION_MESSAGE[language]`.
+It follows the UI language, not the question's, so an English UI with a Turkish question still
+shows English. The match is on the backend's exact wording: if the backend rewords it, the swap
+stops working without an error. Remove both once #45 is fixed.
 
 Those events still do not reach the browser perfectly evenly, and `useSmoothedText` absorbs the
 unevenness by keeping the text the server has sent apart from the text on screen and closing
@@ -341,7 +351,9 @@ which is enough because the pieces worth checking have no DOM in them:
   timestamps. Exercises the dev proxy and proves streaming is unbuffered, with no AWS.
 - When a real backend already holds `:8000`, do not kill it. Run the mock on another port and
   point a scratch Vite config at it (spread `vite.config.js`, override `preview.port` and
-  `preview.proxy`), then `npx vite preview --config <scratch>.mjs`.
+  `preview.proxy`), then `npx vite preview --config <scratch>.mjs`. Check first what holds the
+  port (`ss -ltnp | grep ':8000 '`): it can be another project's service, and a `/chat` POST
+  through the dev proxy lands there.
 - Visual parity → `git worktree add` the previous commit, `npm ci && npm run build` there, serve
   both builds with `vite preview` on two ports, and screenshot them with Playwright. `preview`
   inherits `server.proxy`, so the same `:8000` mock drives a full streamed answer in both.
@@ -378,6 +390,8 @@ building, or two different builds report the same version. The hashed asset file
 `git describe` on `dev` finds no tag. Read the current version from `package.json` or
 `git tag --sort=-creatordate`. After the merge, merge `main` back into `dev` and push, or the
 next PR is refused as "Head branch is out of date".
+GitHub closes an issue only when a closing keyword reaches `main`, so the release PR body lists
+`Closes #N` for each issue fixed on `dev`.
 
 ## Claude Code Hooks (`.claude/settings.json`)
 - Any Edit/Write to `.ts`/`.tsx`/`.js`/`.jsx` auto-runs `eslint --fix` afterward — no need to manually re-lint a file you just edited.
@@ -412,3 +426,6 @@ next PR is refused as "Head branch is out of date".
   a deleting step with a restoring step that relies on word-splitting.
 - Stop background servers by PID (`pgrep -af <pattern>`, then `kill <pid>`), never
   `pkill -f <pattern>`: the pattern also matches the tool's own shell and kills the command.
+  `pgrep -f` inside `kill $(...)` has the same flaw. Find the PID by port instead:
+  `ss -ltnp | grep ":<port> "`.
+- zsh errors on an unmatched glob, so quote them: `grep --include='*.py'`.
