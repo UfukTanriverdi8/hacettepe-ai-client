@@ -1,0 +1,4 @@
+# The Prettier reformat. GitHub's blame view skips these on its own. For local blame run:
+#   git config blame.ignoreRevsFile .git-blame-ignore-revs
+# style: format the codebase with Prettier
+23aa373d5df58607b092169ba5e3a721b7534065

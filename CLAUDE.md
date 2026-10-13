@@ -4,9 +4,10 @@
 Never add a "Co-Authored-By: Claude..." line or any other self-attribution to commit messages.
 
 Work lands on `dev`, then a PR to `main` (the default branch). Never commit to `main` directly.
-CI (`.github/workflows/ci.yml`) runs on pushes and PRs to `dev` and `main`: `npm ci`, lint, typecheck,
+CI (`.github/workflows/ci.yml`) runs on pushes and PRs to `dev` and `main`: `npm ci`, lint, `format:check`, typecheck,
 build, `check:smoothing`, `check:citations` and `check:example-questions`, on Node 24. It has no secrets and reads nothing from AWS.
 It runs the same commands as Dev Commands below, so a green local run predicts a green PR.
+Run `npm run format` before committing: CI fails a file Prettier would change.
 Write PR bodies to `.github/PULL_REQUEST_TEMPLATE.md`'s sections.
 
 ## Project Overview
@@ -257,6 +258,8 @@ npm run build    # type-check (tsc), then production build; a type error fails i
 npm run typecheck # tsc alone
 npm run preview  # preview production build
 npm run lint     # ESLint
+npm run format   # Prettier, rewrites src, scripts and the two config files
+npm run format:check  # the same, but only reports; CI runs it
 npm run check:smoothing  # reveal math (scripts/check-smoothing.mjs); see Testing
 npm run check:citations  # bubble placement (scripts/check-citations.mjs); see Testing
 npm run check:example-questions  # example question pools and the draw (scripts/check-example-questions.mjs); see Testing
@@ -339,13 +342,15 @@ GitHub closes an issue only when a closing keyword reaches `main`, so the releas
 `Closes #N` for each issue fixed on `dev`.
 
 ## Claude Code Hooks (`.claude/settings.json`)
-- Any Edit/Write to `.ts`/`.tsx`/`.js`/`.jsx` auto-runs `eslint --fix` afterward, so there is no need to re-lint a file you just edited.
+- Any Edit/Write to `.ts`/`.tsx`/`.js`/`.jsx` auto-runs `eslint --fix` and then `prettier --write` afterward, so there is no need to re-lint or reformat a file you just edited.
 - Edits to `.env`/`.env.*` are blocked by a PreToolUse hook, so ask the user to change it. The file is vestigial: nothing in `src/` reads `VITE_*`, and the hook's own message ("holds live backend URLs") is out of date.
 
 ## Notable Conventions
 - All components are functional with hooks
-- Semicolons are mostly omitted; `ChatInput.tsx` and `ChatConversations.tsx` are mixed.
-  Match the file you are editing. ESLint enforces neither.
+- Prettier owns layout (`.prettierrc.json`: no semicolons, single quotes, 4 spaces, width 110; 2 spaces
+  for CSS and JSON). `src/components/ui/` is excluded, because `shadcn add` regenerates it in its own
+  style. The one reformat commit is listed in `.git-blame-ignore-revs`; run
+  `git config blame.ignoreRevsFile .git-blame-ignore-revs` for local blame (GitHub reads it itself).
 - Two ways text reaches the screen:
   - **Streamed answers**: `src/hooks/useSmoothedText.ts`, revealing toward whatever the server
     has sent so far.

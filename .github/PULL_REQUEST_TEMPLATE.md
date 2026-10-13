@@ -8,11 +8,11 @@
 
 ## Verified by
 
-<!-- Exact commands and results. `npm run lint`, `npm run typecheck`, `npm run check:smoothing`
+<!-- Exact commands and results. `npm run lint`, `npm run format:check`, `npm run typecheck`, `npm run check:smoothing`
      and `npm run build` cover code, not the screen: a clean build can still render wrong.
      If this PR changes what users see, compare screenshots against the previous commit's
-     build. If it touches the stream reader, drive it with a mock NDJSON server on :8000
-     (see CLAUDE.md). Say what was not exercised against the real backend. -->
+     build. If it touches the stream reader, drive it with a mock NDJSON server
+     (the verify-ui-visually skill, or see CLAUDE.md). Say what was not exercised against the real backend. -->
 
 ## Not included
 
