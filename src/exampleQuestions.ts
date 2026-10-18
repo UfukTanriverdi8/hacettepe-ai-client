@@ -3,10 +3,10 @@ import type { Language } from './types'
 // How many chips the empty screen shows. App draws this many from the pool of the current language.
 export const EXAMPLE_COUNT = 3
 
-// Every question below was sent to the deployed /chat on 2026-10-13 and came back with an answer, in
-// the question's language and with sources. Send a new one the same way before adding it. Time-bound
-// wording ("this term", a year) answers unreliably: the current academic calendar came back stale or
-// as "no information" in most runs, so none of these asks for one.
+// Every question below was sent to the deployed /chat (2026-10-13, and one swapped in on 2026-10-18)
+// and came back with an answer, in the question's language and with sources. Send a new one the same
+// way before adding it. Time-bound wording ("this term", a year) answers unreliably: the current
+// academic calendar came back stale or as "no information" in most runs, so none of these asks for one.
 //
 // English is written for international students, Turkish for Turkish students, so the lists are not
 // translations of each other.
@@ -31,7 +31,7 @@ export const EXAMPLE_POOL: Record<Language, readonly string[]> = {
         "Endüstri Mühendisliği'nde zorunlu staj nasıl yapılır?",
         'Erasmus ile yurt dışına gitmek için başvuru şartları nelerdir?',
         'Beytepe kampüsündeki barınma ve yurt imkânları nelerdir?',
-        'Yaz okulunda ders almak için ne yapmam gerekiyor?',
+        'Yandal programına nasıl başvurulur?',
         'Kayıt dondurma nasıl yapılır?',
         'Mezuniyet için gerekli şartlar nelerdir?',
     ],
