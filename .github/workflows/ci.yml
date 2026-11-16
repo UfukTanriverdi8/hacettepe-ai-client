@@ -27,3 +27,4 @@ jobs:
       - run: npm run check:citations
       - run: npm run check:example-questions
       - run: npm run check:stream-outcome
+      - run: npm run check:feedback-done

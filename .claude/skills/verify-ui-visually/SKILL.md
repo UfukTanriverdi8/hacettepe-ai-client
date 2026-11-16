@@ -27,7 +27,7 @@ node $K/mock-chat.mjs --port 8010 --mode answer &    # modes listed in the scrip
 npx vite preview --config $K/preview.config.mjs &    # same VERIFY_* variables
 ```
 
-`preview` only proxies `/chat` because the config sets it again, so the same mock drives a full streamed answer. Use another mock mode to exercise the error, "tool loop ran out", 429, unsaved and broken-stream paths. A question starting with `#<mode>` (say `#cutoff hi`) uses that mode for that request only, so one mock covers every path.
+`preview` only proxies `/chat` because the config sets it again, so the same mock drives a full streamed answer. Use another mock mode to exercise the error, "tool loop ran out", 429, unsaved and broken-stream paths. A question starting with `#<mode>` (say `#cutoff hi`) uses that mode for that request only, so one mock covers every path. `POST /feedback` answers 200; a feedback comment starting with `#fail` gets 500 and `#missing` gets 404.
 
 The proxy hides a dropped connection: when the mock destroys its socket (`cutoff`, `discard-cutoff`), the proxy leaves the browser's request open and the page waits forever. For those modes, send the page straight to the mock, which answers CORS:
 
