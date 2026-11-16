@@ -10,6 +10,10 @@ const ERROR_MESSAGE = {
     EN: 'Sorry, something went wrong. Please try again.',
     TR: 'Üzgünüm, bir şeyler ters gitti. Lütfen tekrar deneyin.',
 }
+const RATE_LIMIT_MESSAGE = {
+    EN: 'Too many questions in a short time. Wait a few minutes and try again.',
+    TR: 'Kısa sürede çok fazla soru soruldu. Birkaç dakika bekleyip tekrar deneyin.',
+}
 // The backend's FALLBACK_MESSAGE (app/agent/loop.py), sent as a single token when its tool loop
 // runs out of turns. It is English whatever language the question was in, so an exact match is
 // shown as the interface language's text instead. Drop this once the backend stops sending it
@@ -68,11 +72,16 @@ const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(
                 return
             }
 
-            // Add the human message
-            setChatHistory((prevHistory) => [...prevHistory, { sender: 'Human', message: currentQuestion }])
+            // The human message's id lets a 429 take the exchange back out. One less than the
+            // placeholder's, so it cannot collide: `loading` keeps questions at least a request apart.
+            const aiMessageId = Date.now()
+            const humanMessageId = aiMessageId - 1
+            setChatHistory((prevHistory) => [
+                ...prevHistory,
+                { id: humanMessageId, sender: 'Human', message: currentQuestion },
+            ])
 
             // Add a placeholder for the AI response
-            const aiMessageId = Date.now()
             setChatHistory((prevHistory) => [
                 ...prevHistory,
                 {
@@ -203,6 +212,25 @@ const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(
                         ...(activeSessionId && { session_id: activeSessionId }),
                     }),
                 })
+
+                if (response.status === 429) {
+                    // WAF's ChatRateLimit (or Lambda's concurrency cap) refused the question before
+                    // the backend saw it. The generic error would invite an instant retry, and each
+                    // retry extends the block, so say what happened and hand the question back, the
+                    // way the message limit above does.
+                    setChatHistory((prevHistory) =>
+                        prevHistory.filter(
+                            (message) => message.id !== aiMessageId && message.id !== humanMessageId,
+                        ),
+                    )
+                    toast.info(RATE_LIMIT_MESSAGE[language], {
+                        position: 'top-center',
+                        className: 'custom-toast',
+                    })
+                    // Text typed while the request was pending wins over the old question.
+                    setInputValue((current) => (current.trim() ? current : currentQuestion))
+                    return
+                }
 
                 if (!response.ok || !response.body) {
                     throw new Error(`HTTP ${response.status}`)
