@@ -60,6 +60,14 @@ const FeedbackModal = ({
         setError((e) => (e === 'missing' ? e : null))
     }
 
+    // Every way out (Cancel, Esc, overlay, ×). A failed attempt ends with the dialog, so reopening
+    // is a fresh try with the same input rather than a replay of the old error. A missing answer
+    // stays missing.
+    const dismiss = () => {
+        setError((e) => (e === 'missing' ? e : null))
+        onClose()
+    }
+
     const handleSubmit = async () => {
         if (rating === 0 || submitting || error === 'missing') return
         setSubmitting(true)
@@ -110,7 +118,7 @@ const FeedbackModal = ({
         <Dialog
             open={open}
             onOpenChange={(isOpen) => {
-                if (!isOpen) onClose()
+                if (!isOpen) dismiss()
             }}
         >
             <DialogContent closeLabel={tr ? 'Kapat' : 'Close'} className="gap-5 p-5 sm:max-w-md">
@@ -190,7 +198,7 @@ const FeedbackModal = ({
                 )}
 
                 <DialogFooter className="mx-0 mb-0 border-t-0 bg-transparent p-0">
-                    <Button variant="ghost" onClick={() => onClose()}>
+                    <Button variant="ghost" onClick={dismiss}>
                         {tr ? 'İptal' : 'Cancel'}
                     </Button>
                     <Button
