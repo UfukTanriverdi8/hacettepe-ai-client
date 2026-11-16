@@ -8,7 +8,7 @@
 
 import assert from 'node:assert/strict'
 // A .ts import, run under Node's built-in type stripping (Node 22.18+ / 23.6+).
-import { recoverInterrupted, settleAnswer } from '../src/streamOutcome.ts'
+import { recoverInterrupted, settleAnswer, settlementPatch } from '../src/streamOutcome.ts'
 
 // settleAnswer: errorShown wins, then an empty answer fails, then `done` decides.
 assert.equal(settleAnswer({ answer: 'Tam yanıt', doneSeen: true, errorShown: false }), 'complete')
@@ -18,6 +18,25 @@ assert.equal(settleAnswer({ answer: '', doneSeen: false, errorShown: false }), '
 assert.equal(settleAnswer({ answer: '', doneSeen: true, errorShown: false }), 'failed')
 // An `error` event already replaced the text; no cut-off note goes on top of it.
 assert.equal(settleAnswer({ answer: 'Yarım', doneSeen: false, errorShown: true }), 'failed')
+
+// settlementPatch: what each ending writes onto the message.
+assert.deepEqual(settlementPatch('complete', 'err'), { inFlight: false })
+assert.deepEqual(settlementPatch('cut_off', 'err'), {
+    inFlight: false,
+    interrupted: true,
+    isPlaceholder: false,
+    status: null,
+})
+// A `done` with no text still set timestamp (or unsaved). The error text must not carry a feedback
+// button that rates an empty stored row, or a "couldn't be saved" note.
+assert.deepEqual(settlementPatch('failed', 'err'), {
+    inFlight: false,
+    message: 'err',
+    isPlaceholder: false,
+    status: null,
+    timestamp: undefined,
+    unsaved: false,
+})
 
 const finished = { sender: 'AI', message: 'Eski yanıt', id: 1, timestamp: 't1' }
 const human = { sender: 'Human', message: 'Soru' }

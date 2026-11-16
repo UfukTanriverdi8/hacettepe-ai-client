@@ -3,7 +3,7 @@ import { forwardRef, useImperativeHandle, useRef, useState } from 'react'
 import type { Dispatch, FormEvent, SetStateAction } from 'react'
 import { toast } from 'react-toastify'
 import { Button } from '@/components/ui/button'
-import { settleAnswer } from '../streamOutcome'
+import { settleAnswer, settlementPatch } from '../streamOutcome'
 import type { Language, Message, StreamEvent } from '../types'
 
 const ERROR_MESSAGE = {
@@ -115,28 +115,9 @@ const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(
             const settle = () => {
                 if (settled) return
                 settled = true
-                switch (settleAnswer({ answer, doneSeen, errorShown })) {
-                    case 'complete':
-                        patchAiMessage({ inFlight: false })
-                        break
-                    case 'cut_off':
-                        // message stays as stored, so a swapped fallback text is kept.
-                        patchAiMessage({
-                            inFlight: false,
-                            interrupted: true,
-                            isPlaceholder: false,
-                            status: null,
-                        })
-                        break
-                    case 'failed':
-                        patchAiMessage({
-                            inFlight: false,
-                            message: ERROR_MESSAGE[language],
-                            isPlaceholder: false,
-                            status: null,
-                        })
-                        break
-                }
+                patchAiMessage(
+                    settlementPatch(settleAnswer({ answer, doneSeen, errorShown }), ERROR_MESSAGE[language]),
+                )
             }
 
             const handleEvent = (event: StreamEvent) => {
