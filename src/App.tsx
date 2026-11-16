@@ -14,6 +14,7 @@ import type { CSSProperties } from 'react'
 import { ToastContainer } from 'react-toastify'
 import 'react-toastify/dist/ReactToastify.min.css'
 import { EXAMPLE_COUNT, EXAMPLE_POOL, pickRandom } from './exampleQuestions'
+import { recoverInterrupted } from './streamOutcome'
 import type { AppConfig, Message } from './types'
 
 const App = () => {
@@ -29,9 +30,11 @@ const App = () => {
     }))
 
     const [chatHistory, setChatHistory] = useState<Message[]>(() => {
-        // Retrieve chat history from localStorage or default to []
+        // Retrieve chat history from localStorage or default to []. A history saved mid-stream
+        // holds an answer whose request died with the page; recoverInterrupted flags it instead of
+        // leaving it cycling "thinking" or passing for a finished short answer.
         const savedChatHistory = localStorage.getItem('chatHistory')
-        return savedChatHistory ? JSON.parse(savedChatHistory) : []
+        return savedChatHistory ? recoverInterrupted(JSON.parse(savedChatHistory)) : []
     })
 
     useEffect(() => {

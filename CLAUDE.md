@@ -5,7 +5,7 @@ Never add a "Co-Authored-By: Claude..." line or any other self-attribution to co
 
 Work lands on `dev`, then a PR to `main` (the default branch). Never commit to `main` directly.
 CI (`.github/workflows/ci.yml`) runs on pushes and PRs to `dev` and `main`: `npm ci`, lint, `format:check`, typecheck,
-build, `check:smoothing`, `check:citations` and `check:example-questions`, on Node 24. It has no secrets and reads nothing from AWS.
+build, `check:smoothing`, `check:citations`, `check:example-questions` and `check:stream-outcome`, on Node 24. It has no secrets and reads nothing from AWS.
 It runs the same commands as Dev Commands below, so a green local run predicts a green PR.
 Run `npm run format` before committing: CI fails a file Prettier would change.
 Write PR bodies to `.github/PULL_REQUEST_TEMPLATE.md`'s sections.
@@ -115,7 +115,7 @@ Response: **NDJSON**, one JSON object per line, `Content-Type: application/x-ndj
 | `token` | `text` | **append** to the accumulated answer, clear `isPlaceholder` |
 | `discard` | none | drop every token so far; back to `isPlaceholder` with the last status |
 | `sources` | `sources`, `citations` | store both on the message; bubbles render once the reveal completes. Sent after the last `token`, before `done`; both lists empty when nothing is cited |
-| `done` | `timestamp?` | store as the feedback key; absent when the server's write failed |
+| `done` | `timestamp?` | store as the feedback key; absent when the server's write failed, which sets `unsaved` and its note |
 | `error` | `message` | show a localized error based on the current language; log the original server error with `console.error`; do not throw |
 
 Two framing details in the reader must stay. `buffer = lines.pop()` holds back the
@@ -154,11 +154,18 @@ offsets index the full answer and a partly revealed prefix would put bubbles on 
 Placement rules and how a bubble behaves on mouse, keyboard and touch: `docs/stream-protocol.md`.
 
 **Call flow:**
-1. Add human message to history
-2. Add placeholder message with a unique ID (cycling animated loading messages)
-3. `fetch` the stream, then patch that one placeholder repeatedly as events arrive
-4. On `error`, replace the placeholder with a localized visible message and log the original server error with `console.error`; on any thrown failure, replace the placeholder with a visible localized message.
+1. Add the human message to history, with an id (`aiMessageId - 1`) so a 429 can remove it
+2. Add placeholder message with a unique ID and `inFlight: true` (cycling animated loading messages)
+3. `fetch` the stream, then patch that one placeholder repeatedly as events arrive. A 429 instead
+   removes both messages, shows a rate-limit toast and puts the question back in the input
+4. When the stream ends, cleanly or by throwing, `settle()` runs once: `settleAnswer`
+   (`src/streamOutcome.ts`) keeps a complete answer, keeps partial text flagged `interrupted`, or
+   replaces a message with no text (or an `error` event's) with the localized error.
    Never leave it cycling
+
+A reload mid-stream leaves `inFlight` set; `App` runs `recoverInterrupted` on the saved history,
+which flags that message as cut off. The endings, the notes and the 3.3.0-history rule:
+`docs/stream-protocol.md`.
 
 **Session management:** `session_id` lives in `localStorage` under `session_id`. Cleared by
 "New chat" (header, after `NewChatDialog` confirms). History is replayed server-side from DynamoDB, so the client sends only the new
@@ -263,6 +270,7 @@ npm run format:check  # the same, but only reports; CI runs it
 npm run check:smoothing  # reveal math (scripts/check-smoothing.mjs); see Testing
 npm run check:citations  # bubble placement (scripts/check-citations.mjs); see Testing
 npm run check:example-questions  # example question pools and the draw (scripts/check-example-questions.mjs); see Testing
+npm run check:stream-outcome  # how a stream ends and the reload repair (scripts/check-stream-outcome.mjs); see Testing
 ```
 
 `npm run lint` passes with zero problems; treat any new one as a regression. `react/prop-types`
@@ -303,6 +311,9 @@ which is enough because the pieces worth checking have no DOM in them:
   `src/exampleQuestions.ts` over seeded draws. It fails on a repeated entry in one draw, a pool that
   is reordered or skewed, and any pool entry containing "Placeholder" or "Yer tutucu". It cannot say
   whether a question gets a good answer. Only sending it to `/chat` shows that.
+- `npm run check:stream-outcome` → `scripts/check-stream-outcome.mjs`, covering `settleAnswer`'s
+  endings (including a clean end with no text and a `discard` before a break) and
+  `recoverInterrupted` on mid-stream, placeholder and 3.3.0 histories.
 - The NDJSON stream reader was proven the same way, against 1-byte chunks, which splits every
   line and every multi-byte UTF-8 character.
 - Anything that has to be seen in a browser (layout, animation, streaming, touch, a comparison

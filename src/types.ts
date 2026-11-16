@@ -27,6 +27,14 @@ export interface Message {
     // From the `sources` event. Absent on answers from before 3.2.0, which show no bubbles.
     sources?: Source[]
     citations?: Citation[]
+    // True from the placeholder until the stream settles. Only a reload mid-stream leaves it set,
+    // which is how recoverInterrupted (src/streamOutcome.ts) finds such a message.
+    inFlight?: boolean
+    // The stream broke before `done`. The text, if any, is partial.
+    interrupted?: boolean
+    // `done` arrived without a timestamp: the server could not store this answer, so it cannot be
+    // rated and is missing from follow-up questions' replayed history.
+    unsaved?: boolean
 }
 
 /** One source behind an answer; `n` is the number on its bubble. */

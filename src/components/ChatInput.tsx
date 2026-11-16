@@ -3,11 +3,16 @@ import { forwardRef, useImperativeHandle, useRef, useState } from 'react'
 import type { Dispatch, FormEvent, SetStateAction } from 'react'
 import { toast } from 'react-toastify'
 import { Button } from '@/components/ui/button'
+import { settleAnswer, settlementPatch } from '../streamOutcome'
 import type { Language, Message, StreamEvent } from '../types'
 
 const ERROR_MESSAGE = {
     EN: 'Sorry, something went wrong. Please try again.',
     TR: 'Üzgünüm, bir şeyler ters gitti. Lütfen tekrar deneyin.',
+}
+const RATE_LIMIT_MESSAGE = {
+    EN: 'Too many questions in a short time. Wait a few minutes and try again.',
+    TR: 'Kısa sürede çok fazla soru soruldu. Birkaç dakika bekleyip tekrar deneyin.',
 }
 // The backend's FALLBACK_MESSAGE (app/agent/loop.py), sent as a single token when its tool loop
 // runs out of turns. It is English whatever language the question was in, so an exact match is
@@ -67,11 +72,16 @@ const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(
                 return
             }
 
-            // Add the human message
-            setChatHistory((prevHistory) => [...prevHistory, { sender: 'Human', message: currentQuestion }])
+            // The human message's id lets a 429 take the exchange back out. One less than the
+            // placeholder's, so it cannot collide: `loading` keeps questions at least a request apart.
+            const aiMessageId = Date.now()
+            const humanMessageId = aiMessageId - 1
+            setChatHistory((prevHistory) => [
+                ...prevHistory,
+                { id: humanMessageId, sender: 'Human', message: currentQuestion },
+            ])
 
             // Add a placeholder for the AI response
-            const aiMessageId = Date.now()
             setChatHistory((prevHistory) => [
                 ...prevHistory,
                 {
@@ -79,6 +89,7 @@ const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(
                     sender: 'AI',
                     message: language === 'EN' ? 'Thinking...🤔' : 'Hmm...🤔',
                     isPlaceholder: true,
+                    inFlight: true,
                 },
             ])
 
@@ -95,6 +106,19 @@ const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(
             let answer = ''
             let lastStatus: string | null = null
             let errorShown = false
+            let doneSeen = false
+            let settled = false
+
+            // Runs once per question, when the stream ends cleanly or throws, and is the only place
+            // inFlight is cleared. A break keeps whatever text arrived (flagged as cut off); only an
+            // answer with no text left after any discard falls back to the error message.
+            const settle = () => {
+                if (settled) return
+                settled = true
+                patchAiMessage(
+                    settlementPatch(settleAnswer({ answer, doneSeen, errorShown }), ERROR_MESSAGE[language]),
+                )
+            }
 
             const handleEvent = (event: StreamEvent) => {
                 switch (event.type) {
@@ -139,8 +163,14 @@ const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(
                         break
                     case 'done':
                         // timestamp is the DynamoDB sort key this answer is stored under, and is
-                        // absent when the write failed — ChatMessage gates the feedback button on it.
-                        patchAiMessage({ timestamp: event.timestamp, session_id: activeSessionId })
+                        // absent when the write failed — ChatMessage gates the feedback button on it
+                        // and says the answer was not saved.
+                        doneSeen = true
+                        patchAiMessage({
+                            timestamp: event.timestamp,
+                            session_id: activeSessionId,
+                            unsaved: !event.timestamp,
+                        })
                         break
                     case 'error':
                         errorShown = true
@@ -163,6 +193,25 @@ const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(
                         ...(activeSessionId && { session_id: activeSessionId }),
                     }),
                 })
+
+                if (response.status === 429) {
+                    // WAF's ChatRateLimit (or Lambda's concurrency cap) refused the question before
+                    // the backend saw it. The generic error would invite an instant retry, and each
+                    // retry extends the block, so say what happened and hand the question back, the
+                    // way the message limit above does.
+                    setChatHistory((prevHistory) =>
+                        prevHistory.filter(
+                            (message) => message.id !== aiMessageId && message.id !== humanMessageId,
+                        ),
+                    )
+                    toast.info(RATE_LIMIT_MESSAGE[language], {
+                        position: 'top-center',
+                        className: 'custom-toast',
+                    })
+                    // Text typed while the request was pending wins over the old question.
+                    setInputValue((current) => (current.trim() ? current : currentQuestion))
+                    return
+                }
 
                 if (!response.ok || !response.body) {
                     throw new Error(`HTTP ${response.status}`)
@@ -191,17 +240,13 @@ const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(
 
                 buffer += decoder.decode()
                 if (buffer.trim()) handleEvent(JSON.parse(buffer) as StreamEvent)
+                // A clean end is not proof of a whole answer: the stream can close before `done`.
+                settle()
             } catch (error) {
                 console.error('Error:', error)
                 // Without this the placeholder stays on "Thinking...🤔" forever and gets persisted
                 // to localStorage in that state.
-                if (!errorShown) {
-                    patchAiMessage({
-                        message: ERROR_MESSAGE[language],
-                        isPlaceholder: false,
-                        status: null,
-                    })
-                }
+                settle()
             } finally {
                 setLoading(false)
             }

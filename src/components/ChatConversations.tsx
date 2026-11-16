@@ -73,6 +73,8 @@ const ChatConversations = ({ chatHistory, language, feedbackUrl, style }: ChatCo
                         session_id={chat.session_id}
                         sources={chat.sources}
                         citations={chat.citations}
+                        interrupted={chat.interrupted}
+                        unsaved={chat.unsaved}
                         feedbackUrl={feedbackUrl}
                         language={language}
                     />
