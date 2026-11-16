@@ -325,16 +325,22 @@ which is enough because the pieces worth checking have no DOM in them:
 Runs from `../hacettepe-ai-backend/infra`, which reads this repo's `dist/`, so run `npm run build` first.
 ```bash
 cd ../hacettepe-ai-backend/infra && set -a && . ../.env && set +a && . .venv/bin/activate
-npx --yes aws-cdk@2.1142.0 deploy HacettepeAiFrontendStack
+npx --yes aws-cdk@2.1148.0 deploy HacettepeAiFrontendStack --exclusively
 ```
 Both the `.env` source and the venv activation must be in the same shell as `npx`. `cdk.json`
 runs bare `python app.py`, which exists only inside `.venv`; and synth builds *both* stacks,
 so `ORIGIN_VERIFY_SECRET` and `BUDGET_ALERT_EMAIL` are required even for a frontend-only deploy.
+Synth also bundles the backend Lambda in Docker, which needs pypi.org from inside a container.
 
-The backend pins the CLI version. Its CLAUDE.md pairs CLI 2.1142.0 with
-`aws-cdk-lib` 2.270.0 (`infra/requirements.txt`) as a verified combination. A floating
-`aws-cdk@2` runs an untested pair against both stacks. When the backend bumps the pin, change
-it here too.
+`--exclusively` is required. The frontend stack depends on `HacettepeAiBackendStack`, and without
+the flag `cdk deploy` deploys that too ("Including dependency stacks" in the output), shipping
+whatever is in the backend's working tree.
+
+The backend pins the CLI version. Its CLAUDE.md pairs CLI 2.1148.0 with
+`aws-cdk-lib` 2.275.0 (`infra/requirements.txt`) as a verified combination. An older CLI fails
+against that `aws-cdk-lib` with "Cloud assembly schema version mismatch", and a floating
+`aws-cdk@2` runs an untested pair against both stacks. The backend's dependabot bumps the pin,
+so read the version from its CLAUDE.md before deploying, and change it here when it moves.
 
 `cdk deploy` bundles the **working tree** (not a git ref), so what is deployed and what is
 committed can diverge silently.
