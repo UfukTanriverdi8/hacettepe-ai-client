@@ -8,6 +8,7 @@ import DeerMark from './DeerMark'
 import CitationBubbles from './CitationBubbles'
 import FeedbackModal from './FeedbackModal'
 import { remarkCitations } from '../citations'
+import { isFeedbackDone, markFeedbackDone } from '../feedbackDone'
 import { useCyclingText } from '../hooks/useCyclingText'
 import { useSmoothedText } from '../hooks/useSmoothedText'
 import { describeStatus } from '../statusText'
@@ -86,13 +87,17 @@ const ChatMessage = ({
     // '' while the placeholder is up, so the first chunk animates in instead of landing whole.
     const displayedMsg = useSmoothedText(isPlaceholder ? '' : (message ?? ''))
     const [showFeedbackModal, setShowFeedbackModal] = useState(false)
-    const [feedbackSubmitted, setFeedbackSubmitted] = useState(false)
+    // Seeded from localStorage so a rated answer stays rated after a reload. A live answer mounts
+    // before its `done` brings a timestamp, and a brand-new answer cannot be done yet anyway.
+    const [feedbackDone, setFeedbackDone] = useState(
+        () => !!timestamp && isFeedbackDone(localStorage, session_id, timestamp),
+    )
 
     // Holds the feedback button back until the text has finished revealing, rather than letting
     // it appear on the `done` event while the smoother is still catching up.
     const isTypingComplete = displayedMsg === message
     const showFeedbackButton =
-        sender === 'AI' && !isPlaceholder && isTypingComplete && timestamp && !feedbackSubmitted
+        sender === 'AI' && !isPlaceholder && isTypingComplete && timestamp && !feedbackDone
     // Offsets index the full answer, so bubbles wait for the reveal to finish, like the feedback
     // button: added to a partly revealed prefix, they would land on the wrong paragraphs. Memoized
     // so a finished answer's bubbles keep their identity, and an open card its state, when
@@ -172,9 +177,10 @@ const ChatMessage = ({
                 {timestamp && (
                     <FeedbackModal
                         open={showFeedbackModal}
-                        onClose={(submitted) => {
-                            setShowFeedbackModal(false)
-                            if (submitted) setFeedbackSubmitted(true)
+                        onClose={() => setShowFeedbackModal(false)}
+                        onDone={() => {
+                            markFeedbackDone(localStorage, session_id, timestamp)
+                            setFeedbackDone(true)
                         }}
                         timestamp={timestamp}
                         session_id={session_id}
