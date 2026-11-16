@@ -14,7 +14,8 @@
     "check:smoothing": "node scripts/check-smoothing.mjs",
     "check:citations": "node scripts/check-citations.mjs",
     "check:example-questions": "node scripts/check-example-questions.mjs",
-    "check:stream-outcome": "node scripts/check-stream-outcome.mjs"
+    "check:stream-outcome": "node scripts/check-stream-outcome.mjs",
+    "check:feedback-done": "node scripts/check-feedback-done.mjs"
   },
   "dependencies": {
     "@fontsource/ibm-plex-sans": "^5.3.0",
