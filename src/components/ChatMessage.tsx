@@ -24,6 +24,22 @@ const LOADING_MESSAGES: Record<Language, readonly string[]> = {
     EN: ['Thinking...'],
 }
 
+// Stored as flags on the message and worded here, so a language switch re-words them like the
+// status line. `interruptedEmpty` is a reload before any text arrived, with nothing to have cut off.
+const ANSWER_NOTES: Record<Language, Record<'interrupted' | 'interruptedEmpty' | 'unsaved', string>> = {
+    EN: {
+        interrupted: 'This answer was cut off before it finished. Ask again for the full answer.',
+        interruptedEmpty: 'This answer was interrupted. Please ask again.',
+        unsaved:
+            "This answer couldn't be saved, so it can't be rated and won't be remembered in follow-up questions.",
+    },
+    TR: {
+        interrupted: 'Bu yanıt tamamlanmadan kesildi. Tam yanıt için soruyu tekrar sorun.',
+        interruptedEmpty: 'Bu yanıt yarıda kaldı. Lütfen tekrar sorun.',
+        unsaved: 'Bu yanıt kaydedilemedi. Puanlanamaz ve sonraki sorularda hatırlanmaz.',
+    },
+}
+
 // placeCitations marks each bubble group as a span with a data-cite list; any other span passes
 // through untouched.
 const citationSpan = (sources: NonNullable<Message['sources']>, language: Language) =>
@@ -35,7 +51,16 @@ const citationSpan = (sources: NonNullable<Message['sources']>, language: Langua
 
 type ChatMessageProps = Pick<
     Message,
-    'sender' | 'message' | 'isPlaceholder' | 'status' | 'timestamp' | 'session_id' | 'sources' | 'citations'
+    | 'sender'
+    | 'message'
+    | 'isPlaceholder'
+    | 'status'
+    | 'timestamp'
+    | 'session_id'
+    | 'sources'
+    | 'citations'
+    | 'interrupted'
+    | 'unsaved'
 > & {
     feedbackUrl: string
     language: Language
@@ -50,6 +75,8 @@ const ChatMessage = ({
     session_id,
     sources,
     citations,
+    interrupted,
+    unsaved,
     feedbackUrl,
     language,
 }: ChatMessageProps) => {
@@ -83,6 +110,15 @@ const ChatMessage = ({
     // waits; once the server says what it is doing, that step's icon stands in until text arrives.
     const pending = status ? describeStatus(status, language) : null
     const PendingIcon = pending?.icon
+    // Waits for the reveal like the feedback button, so a note never sits under half-shown text.
+    const note =
+        sender === 'AI' && !isPlaceholder && isTypingComplete
+            ? interrupted
+                ? ANSWER_NOTES[language][message ? 'interrupted' : 'interruptedEmpty']
+                : unsaved
+                  ? ANSWER_NOTES[language].unsaved
+                  : null
+            : null
 
     if (sender === 'Human') {
         return (
@@ -113,11 +149,16 @@ const ChatMessage = ({
                         {pending?.text ?? cyclingMsg}
                     </p>
                 ) : (
-                    <div className="markdown w-full">
-                        <ReactMarkdown remarkPlugins={remarkPlugins} components={components}>
-                            {displayedMsg}
-                        </ReactMarkdown>
-                    </div>
+                    message && (
+                        <div className="markdown w-full">
+                            <ReactMarkdown remarkPlugins={remarkPlugins} components={components}>
+                                {displayedMsg}
+                            </ReactMarkdown>
+                        </div>
+                    )
+                )}
+                {note && (
+                    <p className={`text-[13px] text-muted-foreground ${message ? 'mt-2' : ''}`}>{note}</p>
                 )}
                 {showFeedbackButton && (
                     <button

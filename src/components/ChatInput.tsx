@@ -3,6 +3,7 @@ import { forwardRef, useImperativeHandle, useRef, useState } from 'react'
 import type { Dispatch, FormEvent, SetStateAction } from 'react'
 import { toast } from 'react-toastify'
 import { Button } from '@/components/ui/button'
+import { settleAnswer } from '../streamOutcome'
 import type { Language, Message, StreamEvent } from '../types'
 
 const ERROR_MESSAGE = {
@@ -79,6 +80,7 @@ const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(
                     sender: 'AI',
                     message: language === 'EN' ? 'Thinking...🤔' : 'Hmm...🤔',
                     isPlaceholder: true,
+                    inFlight: true,
                 },
             ])
 
@@ -95,6 +97,38 @@ const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(
             let answer = ''
             let lastStatus: string | null = null
             let errorShown = false
+            let doneSeen = false
+            let settled = false
+
+            // Runs once per question, when the stream ends cleanly or throws, and is the only place
+            // inFlight is cleared. A break keeps whatever text arrived (flagged as cut off); only an
+            // answer with no text left after any discard falls back to the error message.
+            const settle = () => {
+                if (settled) return
+                settled = true
+                switch (settleAnswer({ answer, doneSeen, errorShown })) {
+                    case 'complete':
+                        patchAiMessage({ inFlight: false })
+                        break
+                    case 'cut_off':
+                        // message stays as stored, so a swapped fallback text is kept.
+                        patchAiMessage({
+                            inFlight: false,
+                            interrupted: true,
+                            isPlaceholder: false,
+                            status: null,
+                        })
+                        break
+                    case 'failed':
+                        patchAiMessage({
+                            inFlight: false,
+                            message: ERROR_MESSAGE[language],
+                            isPlaceholder: false,
+                            status: null,
+                        })
+                        break
+                }
+            }
 
             const handleEvent = (event: StreamEvent) => {
                 switch (event.type) {
@@ -139,8 +173,14 @@ const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(
                         break
                     case 'done':
                         // timestamp is the DynamoDB sort key this answer is stored under, and is
-                        // absent when the write failed — ChatMessage gates the feedback button on it.
-                        patchAiMessage({ timestamp: event.timestamp, session_id: activeSessionId })
+                        // absent when the write failed — ChatMessage gates the feedback button on it
+                        // and says the answer was not saved.
+                        doneSeen = true
+                        patchAiMessage({
+                            timestamp: event.timestamp,
+                            session_id: activeSessionId,
+                            unsaved: !event.timestamp,
+                        })
                         break
                     case 'error':
                         errorShown = true
@@ -191,17 +231,13 @@ const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(
 
                 buffer += decoder.decode()
                 if (buffer.trim()) handleEvent(JSON.parse(buffer) as StreamEvent)
+                // A clean end is not proof of a whole answer: the stream can close before `done`.
+                settle()
             } catch (error) {
                 console.error('Error:', error)
                 // Without this the placeholder stays on "Thinking...🤔" forever and gets persisted
                 // to localStorage in that state.
-                if (!errorShown) {
-                    patchAiMessage({
-                        message: ERROR_MESSAGE[language],
-                        isPlaceholder: false,
-                        status: null,
-                    })
-                }
+                settle()
             } finally {
                 setLoading(false)
             }
