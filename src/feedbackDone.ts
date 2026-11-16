@@ -44,6 +44,6 @@ export function markFeedbackDone(
     try {
         store.setItem(FEEDBACK_DONE_KEY, JSON.stringify(entries))
     } catch {
-        // Storage refused the write: the answer stays done for this page only, as before 3.5.0.
+        // Storage refused the write: the answer stays done for this page only, as before 3.4.1.
     }
 }
