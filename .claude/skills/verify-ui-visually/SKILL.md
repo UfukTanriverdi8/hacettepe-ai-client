@@ -23,11 +23,18 @@ This skips `tsc`, so run `npm run typecheck` as well.
 ## 3. Start the mock and the preview
 
 ```bash
-node $K/mock-chat.mjs --port 8010 --mode answer &    # answer | slow | error | fallback
+node $K/mock-chat.mjs --port 8010 --mode answer &    # modes listed in the script's header
 npx vite preview --config $K/preview.config.mjs &    # same VERIFY_* variables
 ```
 
-`preview` only proxies `/chat` because the config sets it again, so the same mock drives a full streamed answer. Use another mock mode to exercise the error and the "tool loop ran out" paths.
+`preview` only proxies `/chat` because the config sets it again, so the same mock drives a full streamed answer. Use another mock mode to exercise the error, "tool loop ran out", 429, unsaved and broken-stream paths. A question starting with `#<mode>` (say `#cutoff hi`) uses that mode for that request only, so one mock covers every path.
+
+The proxy hides a dropped connection: when the mock destroys its socket (`cutoff`, `discard-cutoff`), the proxy leaves the browser's request open and the page waits forever. For those modes, send the page straight to the mock, which answers CORS:
+
+```js
+await page.route('**/config.json', (r) =>
+  r.fulfill({ json: { chatUrl: 'http://localhost:8010/chat', feedbackUrl: '/feedback' } }))
+```
 
 To prove streaming is unbuffered, run `slow` mode and read the stream with per-line timestamps. Do not put `head` in that pipe, it buffers its output:
 

@@ -20,6 +20,24 @@ The model sometimes narrates before calling a tool, and those words are streamed
 
 Whether preamble should stay visible instead, interleaved the way Claude.ai shows it, is open as #22. Change neither side of `discard` without settling that first.
 
+## How a stream ends
+
+A stream can stop in more ways than the event table shows: the connection drops, it closes cleanly before `done`, or `done` comes without a `timestamp`. `sendPrompt` calls `settle()` once, after the read loop or in its `catch`, and `settleAnswer` (`src/streamOutcome.ts`) picks one of three endings from the answer text left after any `discard`, whether `done` arrived, and whether an `error` event already showed:
+
+| Settlement | When | The message |
+|---|---|---|
+| `complete` | `done` arrived and there is answer text | kept as is |
+| `cut_off` | text arrived, `done` did not | kept, flagged `interrupted`, with a note under it |
+| `failed` | no text left, or an `error` event | replaced by the generic error |
+
+Clearing `answer` on `discard` is what keeps a retracted preamble from coming back when the stream breaks right after it. A `done` without `timestamp` also sets `unsaved`, which adds its own note: the answer cannot be rated and is missing from follow-up replay.
+
+The placeholder carries `inFlight: true` until `settle()` clears it. A reload mid-stream is the only way to keep it set, so on load `recoverInterrupted` treats such a message as cut off. With no text yet, the note alone shows. Histories from 3.3.0 and earlier have no `inFlight`, and only their stuck placeholders get the same repair. An old half-streamed answer looks exactly like an old unsaved one, so it is left alone.
+
+A 429 (WAF's `ChatRateLimit`, or Lambda's concurrency cap) never reaches `settle()`. The question and its placeholder leave the history, a toast says to wait, and the question goes back into the input unless something new was typed meanwhile.
+
+The notes are flags, worded in `ChatMessage` at render time, so a language switch re-words them. `npm run check:stream-outcome` checks both functions. The `verify-ui-visually` mock has a mode for each ending (`cutoff`, `nodone`, `unsaved`, `discard-cutoff`, `empty`, `ratelimit`).
+
 ## Source bubbles
 
 `sources[].n` is the number on a bubble. `kind` is `webpage`, `document` or `live` (a page fetched during this answer, drawn in `primary`). `citations[].offset` is where a cited passage ends in the concatenated token text, in UTF-16 units.
