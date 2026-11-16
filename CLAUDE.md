@@ -5,7 +5,7 @@ Never add a "Co-Authored-By: Claude..." line or any other self-attribution to co
 
 Work lands on `dev`, then a PR to `main` (the default branch). Never commit to `main` directly.
 CI (`.github/workflows/ci.yml`) runs on pushes and PRs to `dev` and `main`: `npm ci`, lint, `format:check`, typecheck,
-build, `check:smoothing`, `check:citations`, `check:example-questions` and `check:stream-outcome`, on Node 24. It has no secrets and reads nothing from AWS.
+build, `check:smoothing`, `check:citations`, `check:example-questions`, `check:stream-outcome` and `check:feedback-done`, on Node 24. It has no secrets and reads nothing from AWS.
 It runs the same commands as Dev Commands below, so a green local run predicts a green PR.
 Run `npm run format` before committing: CI fails a file Prettier would change.
 Write PR bodies to `.github/PULL_REQUEST_TEMPLATE.md`'s sections.
@@ -177,9 +177,11 @@ question, so follow-up questions work without sending prior turns.
 
 The "Geri bildirimde bulun" pill on an AI message opens `FeedbackModal` (a 5-star rating and an
 optional comment) once the reveal completes, and only when the message has a `timestamp`. It
-`POST`s to `feedbackUrl` from `/config.json`. A non-2xx answer raises an error toast, and the
-endpoint answers **404** when `(session_id, timestamp)` matches no stored exchange. Thanking the
-user for a rating that went nowhere is the failure to avoid. Request body, rating scale and modal
+`POST`s to `feedbackUrl` from `/config.json`. A failed submit keeps the dialog open with the user's
+input and an inline error. The endpoint answers **404** when `(session_id, timestamp)` matches no
+stored exchange, which a retry cannot fix. Thanking the user for a rating that went nowhere is the
+failure to avoid. A 200 or 404 records the answer in `localStorage` (`src/feedbackDone.ts`), so its
+button stays hidden after a reload. Request body, rating scale and modal
 details: `docs/components.md`.
 
 ## Styling
@@ -271,6 +273,7 @@ npm run check:smoothing  # reveal math (scripts/check-smoothing.mjs); see Testin
 npm run check:citations  # bubble placement (scripts/check-citations.mjs); see Testing
 npm run check:example-questions  # example question pools and the draw (scripts/check-example-questions.mjs); see Testing
 npm run check:stream-outcome  # how a stream ends and the reload repair (scripts/check-stream-outcome.mjs); see Testing
+npm run check:feedback-done  # the record of rated answers (scripts/check-feedback-done.mjs); see Testing
 ```
 
 `npm run lint` passes with zero problems; treat any new one as a regression. `react/prop-types`
@@ -314,6 +317,9 @@ which is enough because the pieces worth checking have no DOM in them:
 - `npm run check:stream-outcome` → `scripts/check-stream-outcome.mjs`, covering `settleAnswer`'s
   endings (including a clean end with no text and a `discard` before a break) and
   `recoverInterrupted` on mid-stream, placeholder and 3.3.0 histories.
+- `npm run check:feedback-done` → `scripts/check-feedback-done.mjs`, driving `src/feedbackDone.ts`
+  with a Map-backed store: per-session keys, a missing `session_id`, the 300-entry cap, corrupt
+  data and storage that throws.
 - The NDJSON stream reader was proven the same way, against 1-byte chunks, which splits every
   line and every multi-byte UTF-8 character.
 - Anything that has to be seen in a browser (layout, animation, streaming, touch, a comparison

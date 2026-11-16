@@ -16,6 +16,9 @@
 //   empty     session and one status, then a clean end with no text and no done
 // A question starting with #<mode> (say "#cutoff hello") uses that mode for that request only, so
 // one mock covers every path without a restart.
+// POST /feedback answers 200 {"status":"ok"}. A comment (feedback_reason) starting with #fail
+// answers 500, and one starting with #missing answers 404, which is what the backend sends when
+// (session_id, timestamp) matches no stored exchange.
 // Any other request path answers 404, like a backend with no such route.
 
 import http from 'node:http'
@@ -92,6 +95,25 @@ http.createServer((req, res) => {
         res.writeHead(204).end()
         return
     }
+    if (req.url.startsWith('/feedback') && req.method === 'POST') {
+        let body = ''
+        req.on('data', (chunk) => (body += chunk))
+        req.on('end', () => {
+            console.log('POST /feedback', body)
+            let reason = ''
+            try {
+                reason = JSON.parse(body).feedback_reason ?? ''
+            } catch {
+                // Not JSON: answer as for a plain rating.
+            }
+            const json = { 'Content-Type': 'application/json' }
+            if (reason.startsWith('#fail')) res.writeHead(500, json).end('{"detail":"Mock failure"}')
+            else if (reason.startsWith('#missing'))
+                res.writeHead(404, json).end('{"detail":"No such exchange"}')
+            else res.writeHead(200, json).end('{"status":"ok"}')
+        })
+        return
+    }
     if (!req.url.startsWith('/chat') || req.method !== 'POST') {
         res.writeHead(404).end()
         return
@@ -112,8 +134,12 @@ http.createServer((req, res) => {
             return
         }
         res.writeHead(200, { 'Content-Type': 'application/x-ndjson' })
+        // A fresh timestamp per answer, as the backend's own sort key is: one shared value would
+        // make every answer in a run the same (session_id, timestamp) for feedback.
+        const stamp = new Date().toISOString()
         for (const event of streams[requestMode]) {
-            res.write(JSON.stringify(event) + '\n')
+            const line = event.type === 'done' && event.timestamp ? { ...event, timestamp: stamp } : event
+            res.write(JSON.stringify(line) + '\n')
             if (requestMode === 'slow') await pause(400)
         }
         // A pause before the drop, so the written lines reach the client as data first.
